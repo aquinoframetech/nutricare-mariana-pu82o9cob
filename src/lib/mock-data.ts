@@ -1,0 +1,100 @@
+import { PatientProfile, MealRecord, Alert } from './types'
+
+export const mockPatients: PatientProfile[] = [
+  {
+    id: 'p1',
+    name: 'Ana Souza',
+    role: 'patient',
+    email: 'ana@example.com',
+    avatar: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=1',
+    clinicalCondition: 'Pós-operatório Bariátrica',
+    dailyTarget: 1200,
+    macros: { protein: 80, carbs: 100, fat: 40 },
+    status: 'green',
+    consumedToday: 850,
+    consumedMacros: { protein: 60, carbs: 70, fat: 25 },
+  },
+  {
+    id: 'p2',
+    name: 'Carlos Oliveira',
+    role: 'patient',
+    email: 'carlos@example.com',
+    avatar: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=2',
+    clinicalCondition: 'Ganho de Massa Magra',
+    dailyTarget: 3000,
+    macros: { protein: 180, carbs: 350, fat: 80 },
+    status: 'yellow',
+    consumedToday: 1200,
+    consumedMacros: { protein: 50, carbs: 150, fat: 30 },
+  },
+  {
+    id: 'p3',
+    name: 'Juliana Lima',
+    role: 'patient',
+    email: 'juliana@example.com',
+    avatar: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=3',
+    clinicalCondition: 'Controle de Diabetes',
+    dailyTarget: 1800,
+    macros: { protein: 90, carbs: 150, fat: 60 },
+    status: 'red',
+    consumedToday: 2100,
+    consumedMacros: { protein: 70, carbs: 220, fat: 80 },
+  },
+]
+
+export const mockMeals: MealRecord[] = [
+  {
+    id: 'm1',
+    patientId: 'p1',
+    imageUrl: 'https://img.usecurling.com/p/400/300?q=salad&color=green',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    calories: 350,
+    macros: { protein: 25, carbs: 30, fat: 12 },
+    items: ['Salada de Folhas Verdes - 100g', 'Frango Grelhado - 120g', 'Azeite - 1 colher'],
+  },
+  {
+    id: 'm2',
+    patientId: 'p1',
+    imageUrl: 'https://img.usecurling.com/p/400/300?q=breakfast&color=yellow',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
+    calories: 250,
+    macros: { protein: 15, carbs: 35, fat: 8 },
+    items: ['Ovo Mexido - 2 un', 'Pão Integral - 1 fatia'],
+  },
+  {
+    id: 'm3',
+    patientId: 'p2',
+    imageUrl: 'https://img.usecurling.com/p/400/300?q=steak',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    calories: 800,
+    macros: { protein: 60, carbs: 80, fat: 30 },
+    items: ['Bife Ancho - 200g', 'Arroz Branco - 150g', 'Feijão - 100g'],
+  },
+]
+
+export const mockAlerts: Alert[] = [
+  {
+    id: 'a1',
+    patientId: 'p3',
+    type: 'critical',
+    message: 'Consumo de carboidratos excedeu 50% da meta em uma única refeição.',
+    date: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    read: false,
+  },
+  {
+    id: 'a2',
+    patientId: 'p2',
+    type: 'warning',
+    message: 'Nenhum registro nas últimas 8 horas (período diurno).',
+    date: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    read: false,
+  },
+  {
+    id: 'a3',
+    patientId: 'p1',
+    type: 'success',
+    message: 'Ana atingiu a meta de proteínas do dia!',
+    date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    read: true,
+  },
+]
