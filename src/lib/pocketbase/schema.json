@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-08T11:53:15.479Z",
+  "generatedAt": "2026-07-08T12:35:52.957Z",
   "collections": [
     {
       "name": "users",
@@ -143,6 +143,19 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "gender",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["masculino", "feminino", "outro"]
+        },
+        {
+          "name": "birth_date",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

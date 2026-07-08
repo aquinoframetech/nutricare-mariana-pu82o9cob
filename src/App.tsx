@@ -17,6 +17,7 @@ import RegisterMeal from './pages/patient/RegisterMeal'
 import History from './pages/patient/History'
 import Profile from './pages/patient/Profile'
 import Assistant from './pages/patient/Assistant'
+import ProfileSetup from './pages/patient/ProfileSetup'
 
 // Nutri Pages
 import NutriDashboard from './pages/nutri/Dashboard'
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="register" element={<RegisterMeal />} />
                 <Route path="history" element={<History />} />
                 <Route path="assistant" element={<Assistant />} />
+                <Route path="profile-setup" element={<ProfileSetup />} />
                 <Route path="profile" element={<Profile />} />
               </Route>
 
