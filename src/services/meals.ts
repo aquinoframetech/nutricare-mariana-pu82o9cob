@@ -16,7 +16,25 @@ export const getTodayMeals = async (patientId: string): Promise<Meal[]> => {
   })) as unknown as Meal[]
 }
 
+export const getMealsPaginated = async (
+  patientId: string,
+  page: number,
+  perPage: number,
+  startDate?: string,
+  endDate?: string,
+) => {
+  let filter = `patient_id = "${patientId}"`
+  if (startDate) filter += ` && timestamp >= "${startDate}"`
+  if (endDate) filter += ` && timestamp <= "${endDate}"`
+  return await pb.collection('meals').getList(page, perPage, { filter, sort: '-timestamp' })
+}
+
 export const createMeal = async (data: any) => await pb.collection('meals').create(data)
+
+export const updateMeal = async (id: string, data: any) =>
+  await pb.collection('meals').update(id, data)
+
+export const deleteMeal = async (id: string) => await pb.collection('meals').delete(id)
 
 export const createMealPhoto = async (mealId: string, file: File) => {
   const formData = new FormData()

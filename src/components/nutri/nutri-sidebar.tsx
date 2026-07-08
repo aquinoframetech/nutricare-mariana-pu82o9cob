@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, Bell, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Bell, LogOut, FileText } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +20,7 @@ export function NutriSidebar() {
     { title: 'Visão Geral', url: '/nutri', icon: LayoutDashboard },
     { title: 'Meus Pacientes', url: '/nutri/patients', icon: Users },
     { title: 'Alertas', url: '/nutri/alerts', icon: Bell },
+    { title: 'Relatório Técnico', url: '/nutri/tech-report', icon: FileText },
   ]
 
   return (

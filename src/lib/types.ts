@@ -39,6 +39,10 @@ export interface Meal {
   proteins: number
   carbs: number
   fats: number
+  ai_food_identified: string
+  ai_confidence: number
+  calories_corrected: number
+  location: string
   created: string
   updated: string
   expand?: {
@@ -101,39 +105,49 @@ export interface NutritionistProfile {
   }
 }
 
-export interface Macros {
-  protein: number
-  carbs: number
-  fat: number
+export interface AccessLog {
+  id: string
+  user_id: string
+  target_patient_id: string
+  action: string
+  created: string
+  updated: string
+  expand?: {
+    user_id?: User
+    target_patient_id?: Patient
+  }
 }
 
-export interface PatientProfile {
+export interface MealEditLog {
   id: string
-  name: string
-  avatar: string
-  clinicalCondition: string
-  status: 'green' | 'yellow' | 'red'
-  dailyTarget: number
-  consumedToday: number
-  macros: Macros
-  consumedMacros: Macros
+  meal_id: string
+  editor_id: string
+  previous_values: string
+  new_values: string
+  created: string
+  updated: string
+  expand?: {
+    meal_id?: Meal
+    editor_id?: User
+  }
 }
 
-export interface AppMeal {
+export interface CalorieLog {
   id: string
-  patientId: string
-  imageUrl: string
-  timestamp: string
-  calories: number
-  macros: Macros
-  items: string[]
-}
-
-export interface AppAlert {
-  id: string
-  patientId: string
-  type: 'critical' | 'warning' | 'success' | 'info'
-  message: string
-  read: boolean
+  patient_id: string
   date: string
+  calories: number
+  created: string
+  updated: string
+}
+
+export interface MacroLog {
+  id: string
+  patient_id: string
+  date: string
+  proteins: number
+  carbs: number
+  fats: number
+  created: string
+  updated: string
 }
