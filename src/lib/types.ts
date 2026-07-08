@@ -100,3 +100,40 @@ export interface NutritionistProfile {
     user_id?: User
   }
 }
+
+export interface Macros {
+  protein: number
+  carbs: number
+  fat: number
+}
+
+export interface PatientProfile {
+  id: string
+  name: string
+  avatar: string
+  clinicalCondition: string
+  status: 'green' | 'yellow' | 'red'
+  dailyTarget: number
+  consumedToday: number
+  macros: Macros
+  consumedMacros: Macros
+}
+
+export interface AppMeal {
+  id: string
+  patientId: string
+  imageUrl: string
+  timestamp: string
+  calories: number
+  macros: Macros
+  items: string[]
+}
+
+export interface AppAlert {
+  id: string
+  patientId: string
+  type: 'critical' | 'warning' | 'success' | 'info'
+  message: string
+  read: boolean
+  date: string
+}
