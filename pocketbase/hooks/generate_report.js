@@ -9,8 +9,15 @@ routerAdd(
 
     try {
       const patient = $app.findRecordById('patients', patientId)
-      const days = period === 'daily' ? 1 : period === 'monthly' ? 30 : 7
+      const days =
+        period === 'daily' ? 1 : period === 'monthly' ? 30 : period === 'quarterly' ? 90 : 7
       const since = new Date(Date.now() - days * 86400000).toISOString()
+
+      var patientName = 'N/A'
+      try {
+        var userRec = $app.findRecordById('users', patient.getString('user_id'))
+        patientName = userRec.getString('name')
+      } catch (_) {}
 
       let meals = []
       try {
@@ -18,6 +25,43 @@ routerAdd(
           'meals',
           'patient_id = {:pid} && timestamp >= {:since}',
           '-timestamp',
+          200,
+          0,
+          (pid = patientId),
+          (since = since),
+        )
+      } catch (_) {}
+
+      let alerts = []
+      try {
+        alerts = $app.findRecordsByFilter(
+          'alerts',
+          'patient_id = {:pid}',
+          '-created',
+          50,
+          0,
+          (pid = patientId),
+        )
+      } catch (_) {}
+
+      let notes = []
+      try {
+        notes = $app.findRecordsByFilter(
+          'professional_notes',
+          'patient_id = {:pid}',
+          '-created',
+          50,
+          0,
+          (pid = patientId),
+        )
+      } catch (_) {}
+
+      let calorieLogs = []
+      try {
+        calorieLogs = $app.findRecordsByFilter(
+          'calorie_logs',
+          'patient_id = {:pid} && date >= {:since}',
+          'date',
           100,
           0,
           (pid = patientId),
@@ -43,7 +87,7 @@ routerAdd(
                 )
               })
               .join('\n')
-          : 'Sem refeições registradas no período.'
+          : 'Sem refeicoes registradas no periodo.'
 
       const reply = $ai.chat({
         model: 'fast',
@@ -51,7 +95,7 @@ routerAdd(
           {
             role: 'system',
             content:
-              'Você é um nutricionista clínico. Gere um relatório conciso em português sobre a adesão nutricional do paciente com base nas refeições registradas. Máximo 3 parágrafos.',
+              'Voce e um nutricionista clinico. Gere um relatorio conciso em portugues sobre a adesao nutricional do paciente. Maximo 3 paragrafos.',
           },
           {
             role: 'user',
@@ -60,35 +104,116 @@ routerAdd(
               patient.getString('condition') +
               ', Meta: ' +
               patient.getInt('calorie_goal') +
-              'kcal/dia\nRefeições:\n' +
+              'kcal/dia\nRefeicoes:\n' +
               mealSummary,
           },
         ],
       })
-
       const content = reply.choices[0].message.content
+
+      var lines = []
+      lines.push('RELATORIO NUTRICIONAL - NutriCare')
+      lines.push('')
+      lines.push('Paciente: ' + patientName)
+      lines.push('Condicao: ' + patient.getString('condition'))
+      lines.push('Meta calorica: ' + patient.getInt('calorie_goal') + ' kcal/dia')
+      lines.push('Periodo: ' + period)
+      lines.push('')
+      lines.push('=== RESUMO IA ===')
+      var cl = content.split('\n')
+      for (var i = 0; i < cl.length; i++) lines.push(cl[i])
+      lines.push('')
+      lines.push('=== REFEICOES (' + meals.length + ') ===')
+      for (var i = 0; i < meals.length; i++) {
+        var m = meals[i]
+        lines.push(m.getString('name') + ' - ' + m.getInt('calories') + 'kcal')
+        if (m.getString('ai_food_identified'))
+          lines.push('  Alimentos: ' + m.getString('ai_food_identified'))
+      }
+      lines.push('')
+      lines.push('=== ALERTAS (' + alerts.length + ') ===')
+      for (var i = 0; i < alerts.length; i++)
+        lines.push(alerts[i].getString('type') + ': ' + alerts[i].getString('message'))
+      lines.push('')
+      lines.push('=== NOTAS PROFISSIONAIS (' + notes.length + ') ===')
+      for (var i = 0; i < notes.length; i++) lines.push(notes[i].getString('note'))
+      lines.push('')
+      lines.push('=== EVOLUCAO CALORICA ===')
+      for (var i = 0; i < calorieLogs.length; i++)
+        lines.push(
+          calorieLogs[i].getString('date').substring(0, 10) +
+            ': ' +
+            calorieLogs[i].getInt('calories') +
+            ' kcal',
+        )
+      lines.push('')
+      lines.push('')
+      lines.push('___________________________')
+      lines.push('Responsavel Tecnico')
+      lines.push('Nutricionista CRN: ____________')
+
+      var pdfContent = ''
+      var y = 750
+      for (var i = 0; i < lines.length; i++) {
+        if (y < 50) break
+        var line = lines[i].replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+        pdfContent += 'BT /F1 10 Tf 50 ' + y + ' Td (' + line + ') Tj ET\n'
+        y -= 15
+      }
+
+      var objects = []
+      objects.push('<< /Type /Catalog /Pages 2 0 R >>')
+      objects.push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>')
+      objects.push(
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+      )
+      objects.push('<< /Length ' + pdfContent.length + ' >>\nstream\n' + pdfContent + '\nendstream')
+      objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+
+      var pdf = '%PDF-1.4\n'
+      var offsets = []
+      for (var i = 0; i < objects.length; i++) {
+        offsets[i] = pdf.length
+        pdf += i + 1 + ' 0 obj\n' + objects[i] + '\nendobj\n'
+      }
+      var xrefOffset = pdf.length
+      pdf += 'xref\n0 ' + (objects.length + 1) + '\n'
+      pdf += '0000000000 65535 f \n'
+      for (var i = 0; i < objects.length; i++) {
+        var os = '0000000000' + offsets[i]
+        os = os.substring(os.length - 10)
+        pdf += os + ' 00000 n \n'
+      }
+      pdf += 'trailer\n<< /Size ' + (objects.length + 1) + ' /Root 1 0 R >>\n'
+      pdf += 'startxref\n' + xrefOffset + '\n%%EOF'
+
+      var bytes = new Uint8Array(pdf.length)
+      for (var i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i)
+
+      var file = $filesystem.fileFromBytes(bytes, 'relatorio_nutricional.pdf')
 
       const reportCol = $app.findCollectionByNameOrId('reports')
       const report = new Record(reportCol)
       report.set('patient_id', patientId)
       report.set('period', period)
       report.set('summary', content)
+      report.set('pdf_export', file)
       $app.save(report)
 
       const logCol = $app.findCollectionByNameOrId('chatgpt_analysis_logs')
       const log = new Record(logCol)
-      log.set('prompt', 'Relatório para paciente ' + patientId + ', período: ' + period)
+      log.set('prompt', 'Relatorio para paciente ' + patientId + ', periodo: ' + period)
       log.set('response', content)
-      log.set('user_id', e.auth?.id || '')
+      log.set('user_id', e.auth ? e.auth.id : '')
       log.set('type', 'report_generation')
       $app.saveNoValidate(log)
 
       return e.json(200, { summary: content, id: report.id })
     } catch (err) {
       if (err instanceof SkipAiConfigError)
-        return e.json(503, { error: 'AI temporariamente indisponível' })
+        return e.json(503, { error: 'AI temporariamente indisponivel' })
       if (err instanceof SkipAiError)
-        return e.json(502, { error: 'AI temporariamente indisponível' })
+        return e.json(502, { error: 'AI temporariamente indisponivel' })
       throw err
     }
   },

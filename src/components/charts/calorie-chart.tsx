@@ -1,5 +1,5 @@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 
 interface CalorieChartData {
   day: string
@@ -8,7 +8,18 @@ interface CalorieChartData {
 }
 
 export function CalorieChart({ data }: { data?: CalorieChartData[] }) {
-  const chartData = data || []
+  const chartData =
+    data && data.length > 0
+      ? data
+      : [
+          { day: 'Seg', calories: 0, target: 2000 },
+          { day: 'Ter', calories: 0, target: 2000 },
+          { day: 'Qua', calories: 0, target: 2000 },
+          { day: 'Qui', calories: 0, target: 2000 },
+          { day: 'Sex', calories: 0, target: 2000 },
+          { day: 'Sab', calories: 0, target: 2000 },
+          { day: 'Dom', calories: 0, target: 2000 },
+        ]
   const config = {
     calories: { label: 'Consumo', color: 'hsl(var(--primary))' },
     target: { label: 'Meta', color: 'hsl(var(--muted-foreground))' },

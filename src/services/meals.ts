@@ -50,6 +50,15 @@ export const getMealPhotos = async (mealId: string): Promise<MealPhoto[]> =>
 
 export const getMealPhotoUrl = (record: any, filename: string) => pb.files.getUrl(record, filename)
 
+export const getAllMeals = async (): Promise<Meal[]> =>
+  (await pb.collection('meals').getFullList({
+    sort: '-timestamp',
+    expand: 'patient_id',
+  })) as unknown as Meal[]
+
+export const getMealDelta = (meal: Meal): number =>
+  (meal.calories_corrected || 0) - (meal.calories || 0)
+
 export const analyzeMealDescription = (description: string) =>
   pb.send('/backend/v1/analyze-meal', {
     method: 'POST',

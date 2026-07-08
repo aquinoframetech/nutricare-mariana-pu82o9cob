@@ -1,110 +1,83 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
-import { Link, useNavigate } from 'react-router-dom'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Activity } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { Utensils } from 'lucide-react'
 
 export default function Login() {
-  const { signIn } = useAuth()
+  const { signIn, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e?: React.FormEvent, demoEmail?: string, demoPass?: string) => {
-    e?.preventDefault()
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(user.role === 'patient' ? '/patient' : '/nutri')
+    }
+  }, [isAuthenticated, user, navigate])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await signIn(demoEmail || email, demoPass || password)
-    if (error) {
-      setError(getErrorMessage(error))
-      setLoading(false)
-    } else {
-      const role = (window as any).__userRole || 'patient'
-      navigate(role === 'nutritionist' ? '/nutri' : '/patient')
-    }
-  }
-
-  const handleDemoNutri = () => {
-    setEmail('aquinobr@hotmail.com')
-    setPassword('Skip@Pass')
-    handleLogin(undefined, 'aquinobr@hotmail.com', 'Skip@Pass')
-  }
-
-  const handleDemoPatient = () => {
-    setEmail('ana@example.com')
-    setPassword('Skip@Pass')
-    handleLogin(undefined, 'ana@example.com', 'Skip@Pass')
+    const { error } = await signIn(email, password)
+    if (error) setError(getErrorMessage(error))
+    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
-      <div className="w-full max-w-md space-y-8 animate-fade-in-up">
-        <div className="flex flex-col items-center text-center space-y-2">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-primary/20">
-            <Activity className="w-8 h-8 text-primary-foreground" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50 p-4">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-3">
+            <Utensils className="w-7 h-7 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">NutriCare Mariana</h1>
-          <p className="text-muted-foreground">Acompanhamento nutricional inteligente</p>
-        </div>
-
-        <Card className="border-none shadow-elevation">
-          <CardHeader>
-            <CardTitle>Acesse sua conta</CardTitle>
-            <CardDescription>Entre com seu e-mail e senha.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="nome@exemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" size="lg" className="w-full" disabled={loading}>
-                {loading ? 'Entrando...' : 'Entrar'}
-              </Button>
-            </form>
-
-            <div className="flex flex-col gap-2 pt-2">
-              <Button variant="outline" onClick={handleDemoPatient} disabled={loading}>
-                Entrar como Paciente (Demo)
-              </Button>
-              <Button variant="outline" onClick={handleDemoNutri} disabled={loading}>
-                Entrar como Nutricionista (Demo)
-              </Button>
+          <CardTitle className="text-2xl">NutriCare Mariana</CardTitle>
+          <CardDescription>Acompanhamento nutricional com IA</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="seu@email.com"
+              />
             </div>
-
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Entrando...' : 'Entrar'}
+            </Button>
             <p className="text-center text-sm text-muted-foreground">
               Não tem conta?{' '}
               <Link to="/signup" className="text-primary font-medium hover:underline">
                 Cadastre-se
               </Link>
             </p>
-          </CardContent>
-        </Card>
-      </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -20,7 +20,7 @@ routerAdd(
           {
             role: 'system',
             content:
-              'You are a nutrition expert. Analyze the meal and estimate nutrition. Return ONLY valid JSON: {"calories": number, "proteins": number, "carbs": number, "fats": number, "items": ["item1"], "description": "brief description in Portuguese"}',
+              'You are a nutrition expert. Analyze the meal and estimate nutrition. Return ONLY valid JSON: {"calories": number, "proteins": number, "carbs": number, "fats": number, "items": ["item1"], "description": "brief description in Portuguese", "ai_notes": "qualitative nutritional feedback in Portuguese about meal quality and suggestions"}',
           },
           { role: 'user', content: description },
         ],

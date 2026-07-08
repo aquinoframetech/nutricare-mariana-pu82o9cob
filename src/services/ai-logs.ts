@@ -1,0 +1,18 @@
+import pb from '@/lib/pocketbase/client'
+
+export interface AiLog {
+  id: string
+  prompt: string
+  response: string
+  user_id: string
+  type: string
+  created: string
+  updated: string
+  expand?: { user_id?: { id: string; name: string; email: string } }
+}
+
+export const getAiLogs = async (): Promise<AiLog[]> =>
+  (await pb.collection('chatgpt_analysis_logs').getFullList({
+    expand: 'user_id',
+    sort: '-created',
+  })) as unknown as AiLog[]

@@ -1,4 +1,4 @@
-export type Role = 'patient' | 'nutritionist'
+export type Role = 'patient' | 'nutritionist' | 'admin'
 
 export interface User {
   id: string
@@ -43,6 +43,7 @@ export interface Meal {
   ai_confidence: number
   calories_corrected: number
   location: string
+  ai_notes: string
   created: string
   updated: string
   expand?: {
@@ -150,4 +151,35 @@ export interface MacroLog {
   fats: number
   created: string
   updated: string
+}
+
+export interface PatientProfile {
+  id: string
+  name: string
+  avatar: string
+  clinicalCondition: string
+  status: 'green' | 'yellow' | 'red'
+  dailyTarget: number
+  consumedToday: number
+  macros: { protein: number; carbs: number; fat: number }
+  consumedMacros: { protein: number; carbs: number; fat: number }
+}
+
+export interface AppMeal {
+  id: string
+  patientId: string
+  imageUrl: string
+  timestamp: string
+  calories: number
+  macros: { protein: number; carbs: number; fat: number }
+  items: string[]
+}
+
+export interface AppAlert {
+  id: string
+  patientId: string
+  type: 'critical' | 'warning' | 'success'
+  message: string
+  read: boolean
+  date: string
 }
