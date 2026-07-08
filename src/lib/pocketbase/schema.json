@@ -1,0 +1,635 @@
+{
+  "generatedAt": "2026-07-07T23:59:56.842Z",
+  "collections": [
+    {
+      "name": "users",
+      "type": "auth",
+      "apiRules": {
+        "list": "id = @request.auth.id",
+        "view": "id = @request.auth.id",
+        "create": "",
+        "update": "id = @request.auth.id",
+        "delete": "id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "role",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["patient", "nutritionist"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ]
+    },
+    {
+      "name": "patients",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "view": "@request.auth.id != '' && (user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && (user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+      },
+      "fields": [
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "age",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "weight",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "height",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "goal",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "condition",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "restrictions",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allergies",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "medical_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "calorie_goal",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nutritionist_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_patients_user ON patients (user_id)",
+        "CREATE INDEX idx_patients_nutri ON patients (nutritionist_id)"
+      ]
+    },
+    {
+      "name": "nutritionist_profiles",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && user_id = @request.auth.id",
+        "delete": "@request.auth.id != '' && user_id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "bio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "specialty",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_nutri_profiles_user ON nutritionist_profiles (user_id)"]
+    },
+    {
+      "name": "meals",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "create": "@request.auth.id != '' && patient_id.user_id = @request.auth.id",
+        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "delete": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')"
+      },
+      "fields": [
+        {
+          "name": "patient_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "patients"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timestamp",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "calories",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proteins",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "carbs",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fats",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_meals_patient ON meals (patient_id)",
+        "CREATE INDEX idx_meals_timestamp ON meals (timestamp)"
+      ]
+    },
+    {
+      "name": "meal_photos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+      },
+      "fields": [
+        {
+          "name": "meal_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "meals"
+        },
+        {
+          "name": "image",
+          "type": "file",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_meal_photos_meal ON meal_photos (meal_id)"]
+    },
+    {
+      "name": "alerts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+      },
+      "fields": [
+        {
+          "name": "patient_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "patients"
+        },
+        {
+          "name": "type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_read",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_alerts_patient ON alerts (patient_id)"]
+    },
+    {
+      "name": "calorie_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+      },
+      "fields": [
+        {
+          "name": "patient_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "patients"
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "calories",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_calorie_logs_patient_date ON calorie_logs (patient_id, date)"]
+    },
+    {
+      "name": "macro_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+      },
+      "fields": [
+        {
+          "name": "patient_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "patients"
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "proteins",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "carbs",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fats",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_macro_logs_patient_date ON macro_logs (patient_id, date)"]
+    },
+    {
+      "name": "professional_notes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "create": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+      },
+      "fields": [
+        {
+          "name": "patient_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "patients"
+        },
+        {
+          "name": "nutritionist_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_notes_patient ON professional_notes (patient_id)"]
+    },
+    {
+      "name": "reports",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "create": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
+        "update": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+      },
+      "fields": [
+        {
+          "name": "patient_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "patients"
+        },
+        {
+          "name": "period",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pdf_export",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_reports_patient ON reports (patient_id)"]
+    },
+    {
+      "name": "chatgpt_analysis_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
+        "view": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
+        "create": "@request.auth.id != ''",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "prompt",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "response",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_analysis_logs_user ON chatgpt_analysis_logs (user_id)"]
+    }
+  ]
+}

@@ -1,29 +1,36 @@
 import { Outlet, Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth } from '@/hooks/use-auth'
 import { PatientNav } from './patient/patient-nav'
 import { NutriSidebar } from './nutri/nutri-sidebar'
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
-import { Bell } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 export default function Layout() {
-  const { user } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
   const location = useLocation()
 
-  if (!user && location.pathname !== '/') {
-    return <Navigate to="/" replace />
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (isAuthenticated && (location.pathname === '/' || location.pathname === '/signup')) {
+    return <Navigate to={user?.role === 'patient' ? '/patient' : '/nutri'} replace />
+  }
+
+  if (!isAuthenticated) {
+    return <Outlet />
   }
 
   if (user?.role === 'patient' && location.pathname.startsWith('/nutri')) {
     return <Navigate to="/patient" replace />
   }
 
-  if (user?.role === 'nutri' && location.pathname.startsWith('/patient')) {
+  if (user?.role === 'nutritionist' && location.pathname.startsWith('/patient')) {
     return <Navigate to="/nutri" replace />
-  }
-
-  if (!user) {
-    return <Outlet />
   }
 
   if (user.role === 'patient') {
@@ -36,10 +43,10 @@ export default function Layout() {
             </div>
             <span className="font-bold text-lg tracking-tight">NutriCare</span>
           </div>
-          <div className="relative">
-            <Bell className="w-5 h-5 text-muted-foreground" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-background" />
-          </div>
+          <Avatar className="w-8 h-8">
+            <AvatarImage src={user.avatar} />
+            <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
+          </Avatar>
         </header>
         <main className="flex-1 pb-20 animate-fade-in">
           <Outlet />
@@ -59,7 +66,7 @@ export default function Layout() {
             <div className="ml-auto flex items-center gap-4">
               <Avatar className="w-8 h-8">
                 <AvatarImage src={user.avatar} />
-                <AvatarFallback>NM</AvatarFallback>
+                <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
               </Avatar>
             </div>
           </header>

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, Bell, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Bell, LogOut } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -12,10 +12,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth } from '@/hooks/use-auth'
 
 export function NutriSidebar() {
-  const { logout, user } = useAuth()
+  const { signOut, user } = useAuth()
   const navItems = [
     { title: 'Visão Geral', url: '/nutri', icon: LayoutDashboard },
     { title: 'Meus Pacientes', url: '/nutri/patients', icon: Users },
@@ -67,7 +67,10 @@ export function NutriSidebar() {
         </div>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout} className="text-destructive hover:text-destructive">
+            <SidebarMenuButton
+              onClick={signOut}
+              className="text-destructive hover:text-destructive"
+            >
               <LogOut />
               <span>Sair</span>
             </SidebarMenuButton>
