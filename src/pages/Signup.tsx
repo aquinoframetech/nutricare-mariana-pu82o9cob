@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { getErrorMessage, extractFieldErrors, type FieldErrors } from '@/lib/pocketbase/errors'
+import { getErrorMessage, type FieldErrors } from '@/lib/pocketbase/errors'
 import { z } from 'zod'
 import { Utensils } from 'lucide-react'
 
@@ -62,10 +62,14 @@ export default function Signup() {
     setLoading(true)
     setError('')
     setFieldErrors({})
-    const { error } = await signUp(name, email, password, 'patient')
+    const {
+      error,
+      message,
+      fieldErrors: apiFieldErrors,
+    } = await signUp(name, email, password, 'patient')
     if (error) {
-      setError(getErrorMessage(error))
-      setFieldErrors(extractFieldErrors(error))
+      setError(message || getErrorMessage(error))
+      setFieldErrors(apiFieldErrors)
       setLoading(false)
       return
     }

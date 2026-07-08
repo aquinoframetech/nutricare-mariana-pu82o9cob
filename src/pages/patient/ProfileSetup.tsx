@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
-import { createPatient, getMyPatientProfile } from '@/services/patients'
+import { createPatient, getMyPatientProfile, updatePatient } from '@/services/patients'
 import { getAllNutritionistProfiles } from '@/services/nutritionist-profiles'
 import { NutritionistProfile } from '@/lib/types'
 import { Utensils, User as UserIcon, Mail } from 'lucide-react'
@@ -38,7 +38,11 @@ export default function ProfileSetup() {
 
   useEffect(() => {
     getMyPatientProfile()
-      .then(() => navigate('/patient'))
+      .then((profile) => {
+        if (profile.weight > 0 || profile.birth_date) {
+          navigate('/patient')
+        }
+      })
       .catch(() => {})
 
     getAllNutritionistProfiles()
@@ -70,8 +74,27 @@ export default function ProfileSetup() {
         return
       }
 
-      await createPatient({
-        user_id: userId,
+      let patientId: string
+      try {
+        const existing = await getMyPatientProfile()
+        patientId = existing.id
+      } catch {
+        const created = await createPatient({
+          user_id: userId,
+          age: 0,
+          weight: 0,
+          height: 0,
+          goal: '',
+          condition: '',
+          restrictions: '',
+          allergies: '',
+          medical_notes: '',
+          calorie_goal: 0,
+        } as any)
+        patientId = (created as any).id
+      }
+
+      await updatePatient(patientId, {
         birth_date: birthDate || undefined,
         gender: gender || undefined,
         age: birthDate ? calculateAge(birthDate) : 0,
@@ -81,8 +104,6 @@ export default function ProfileSetup() {
         restrictions,
         allergies,
         medical_notes: observations,
-        condition: '',
-        calorie_goal: 0,
         nutritionist_id: nutriId || undefined,
       } as any)
 

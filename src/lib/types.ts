@@ -21,6 +21,8 @@ export interface Patient {
   medical_notes: string
   calorie_goal: number
   nutritionist_id: string
+  gender: string
+  birth_date: string
   created: string
   updated: string
   expand?: {
