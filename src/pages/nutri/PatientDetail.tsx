@@ -25,7 +25,7 @@ export default function PatientDetail() {
 
   const [patient, setPatient] = useState<Patient | null>(null)
   const [meals, setMeals] = useState<MealWithPhoto[]>([])
-  const [corrections, setCorrections] = useState<Record<string, number>>(})
+  const [corrections, setCorrections] = useState<Record<string, number>>({})
   const [report, setReport] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [message, setMessage] = useState('')
@@ -53,7 +53,9 @@ export default function PatientDetail() {
     loadData()
   }, [loadData])
 
-  useRealtime('meals', () => { loadData() })
+  useRealtime('meals', () => {
+    loadData()
+  })
 
   const handleSaveCorrection = async (mealId: string) => {
     const corrected = corrections[mealId] ?? 0
@@ -68,7 +70,9 @@ export default function PatientDetail() {
   const handleGenerateReport = () => {
     setIsGenerating(true)
     setTimeout(() => {
-      setReport('Resumo IA: A paciente manteve adesão calórica em 85% dos dias. Observa-se um déficit sistemático de proteínas nas refeições noturnas. Sugestão: Avaliar suplementação proteica no jantar.')
+      setReport(
+        'Resumo IA: A paciente manteve adesão calórica em 85% dos dias. Observa-se um déficit sistemático de proteínas nas refeições noturnas. Sugestão: Avaliar suplementação proteica no jantar.',
+      )
       setIsGenerating(false)
     }, 2000)
   }
@@ -86,7 +90,11 @@ export default function PatientDetail() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
-      <Button variant="ghost" onClick={() => navigate('/nutri/patients')} className="-ml-4 text-muted-foreground">
+      <Button
+        variant="ghost"
+        onClick={() => navigate('/nutri/patients')}
+        className="-ml-4 text-muted-foreground"
+      >
         <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
       </Button>
 
@@ -101,11 +109,17 @@ export default function PatientDetail() {
             <div className="flex gap-2 mt-1 flex-wrap">
               {patient.goal && <Badge variant="secondary">{patient.goal}</Badge>}
               {patient.condition && <Badge variant="outline">{patient.condition}</Badge>}
-              {patient.calorie_goal && <Badge variant="outline">Meta: {patient.calorie_goal} kcal</Badge>}
+              {patient.calorie_goal && (
+                <Badge variant="outline">Meta: {patient.calorie_goal} kcal</Badge>
+              )}
             </div>
           </div>
         </div>
-        <Button onClick={handleGenerateReport} disabled={isGenerating} className="bg-indigo-600 hover:bg-indigo-700">
+        <Button
+          onClick={handleGenerateReport}
+          disabled={isGenerating}
+          className="bg-indigo-600 hover:bg-indigo-700"
+        >
           <Sparkles className="w-4 h-4 mr-2" />
           {isGenerating ? 'Analisando...' : 'Gerar Relatório IA'}
         </Button>
@@ -142,7 +156,11 @@ export default function PatientDetail() {
                   >
                     <div className="flex items-start gap-3">
                       {meal.photoUrl ? (
-                        <img src={meal.photoUrl} alt="Refeição" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                        <img
+                          src={meal.photoUrl}
+                          alt="Refeição"
+                          className="w-14 h-14 rounded-lg object-cover shrink-0"
+                        />
                       ) : null}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -157,8 +175,12 @@ export default function PatientDetail() {
                           </p>
                         )}
                         <div className="flex gap-2 mt-1 flex-wrap">
-                          <Badge variant="outline" className="text-xs">IA: {meal.calories ?? 0} kcal</Badge>
-                          <Badge variant="outline" className="text-xs">{meal.proteins ?? 0}P {meal.carbs ?? 0}C {meal.fats ?? 0}G</Badge>
+                          <Badge variant="outline" className="text-xs">
+                            IA: {meal.calories ?? 0} kcal
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {meal.proteins ?? 0}P {meal.carbs ?? 0}C {meal.fats ?? 0}G
+                          </Badge>
                           {lowConfidence && (
                             <Badge variant="destructive" className="text-xs">
                               <AlertTriangle className="w-3 h-3 mr-1" />
@@ -175,15 +197,21 @@ export default function PatientDetail() {
                           type="number"
                           value={corrections[meal.id] ?? 0}
                           onChange={(e) =>
-                            setCorrections((prev) => ({ ...prev, [meal.id]: Number(e.target.value) }))
+                            setCorrections((prev) => ({
+                              ...prev,
+                              [meal.id]: Number(e.target.value),
+                            }))
                           }
                           className="h-9"
                         />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Delta</Label>
-                        <div className={`text-sm font-bold h-9 flex items-center ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-green-500' : 'text-muted-foreground'}`}>
-                          {delta > 0 ? '+' : ''}{delta} kcal
+                        <div
+                          className={`text-sm font-bold h-9 flex items-center ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-green-500' : 'text-muted-foreground'}`}
+                        >
+                          {delta > 0 ? '+' : ''}
+                          {delta} kcal
                         </div>
                       </div>
                       <Button size="sm" onClick={() => handleSaveCorrection(meal.id)}>
@@ -194,7 +222,9 @@ export default function PatientDetail() {
                 )
               })}
               {meals.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma refeição registrada.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhuma refeição registrada.
+                </p>
               )}
             </CardContent>
           </Card>
@@ -221,14 +251,22 @@ export default function PatientDetail() {
 
           {patient.allergies && (
             <Card>
-              <CardHeader><CardTitle className="text-sm">Alergias</CardTitle></CardHeader>
-              <CardContent><p className="text-sm text-muted-foreground">{patient.allergies}</p></CardContent>
+              <CardHeader>
+                <CardTitle className="text-sm">Alergias</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{patient.allergies}</p>
+              </CardContent>
             </Card>
           )}
           {patient.restrictions && (
             <Card>
-              <CardHeader><CardTitle className="text-sm">Restrições</CardTitle></CardHeader>
-              <CardContent><p className="text-sm text-muted-foreground">{patient.restrictions}</p></CardContent>
+              <CardHeader>
+                <CardTitle className="text-sm">Restrições</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{patient.restrictions}</p>
+              </CardContent>
             </Card>
           )}
         </div>
