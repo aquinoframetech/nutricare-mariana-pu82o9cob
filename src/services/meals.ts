@@ -2,12 +2,10 @@ import pb from '@/lib/pocketbase/client'
 import { Meal, MealPhoto } from '@/lib/types'
 
 export const getMealsByPatient = async (patientId: string): Promise<Meal[]> =>
-  (await pb
-    .collection('meals')
-    .getFullList({
-      filter: `patient_id = "${patientId}"`,
-      sort: '-timestamp',
-    })) as unknown as Meal[]
+  (await pb.collection('meals').getFullList({
+    filter: `patient_id = "${patientId}"`,
+    sort: '-timestamp',
+  })) as unknown as Meal[]
 
 export const getTodayMeals = async (patientId: string): Promise<Meal[]> => {
   const today = new Date()
