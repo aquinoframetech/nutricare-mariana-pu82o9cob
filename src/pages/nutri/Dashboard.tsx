@@ -3,19 +3,23 @@ import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
 import { getAllPatients } from '@/services/patients'
 import { getAllAlerts, markAlertRead } from '@/services/alerts'
+import { testOpenAiConnection, type OpenAiTestResult } from '@/services/openai-test'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, AlertCircle, TrendingUp, CheckCircle } from 'lucide-react'
+import { Users, AlertCircle, TrendingUp, CheckCircle, Zap, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Patient, Alert } from '@/lib/types'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { toast } from 'sonner'
 
 export default function NutriDashboard() {
   const { user } = useAuth()
   const [patients, setPatients] = useState<Patient[]>([])
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(true)
+  const [testingAi, setTestingAi] = useState(false)
+  const [aiTestResult, setAiTestResult] = useState<OpenAiTestResult | null>(null)
 
   const loadData = async () => {
     try {
@@ -38,6 +42,30 @@ export default function NutriDashboard() {
   const criticalAlerts = alerts.filter((a) => a.type === 'critical' && !a.is_read).length
   const onTrack = patients.length - alerts.filter((a) => a.type === 'critical' && !a.is_read).length
 
+  const handleTestConnection = async () => {
+    setTestingAi(true)
+    setAiTestResult(null)
+    try {
+      const result = await testOpenAiConnection()
+      setAiTestResult(result)
+      if (result.success) {
+        toast.success('Conexão com IA estabelecida com sucesso!', {
+          description: `Tempo de resposta: ${result.response_time_ms}ms`,
+        })
+      } else {
+        toast.error('Falha na conexão com IA', {
+          description: result.message,
+        })
+      }
+    } catch (err: any) {
+      const msg = err?.response?.message || err?.message || 'Erro ao testar conexão'
+      setAiTestResult({ success: false, message: msg, response_time_ms: 0 })
+      toast.error('Falha na conexão com IA', { description: msg })
+    } finally {
+      setTestingAi(false)
+    }
+  }
+
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -51,6 +79,50 @@ export default function NutriDashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Visão Geral</h1>
         <p className="text-muted-foreground">Olá, {user?.name?.split(' ')[0]}</p>
       </div>
+      <Card className="border-dashed">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Diagnóstico de IA</CardTitle>
+          <Zap className="h-4 w-4 text-amber-500" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Verifique a conectividade do backend com o serviço de IA.
+          </p>
+          <Button
+            onClick={handleTestConnection}
+            disabled={testingAi}
+            variant="outline"
+            className="w-full"
+          >
+            {testingAi ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Testando...
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4 mr-2" />
+                Testar Conexão IA
+              </>
+            )}
+          </Button>
+          {aiTestResult && (
+            <div
+              className={`rounded-md p-2 text-xs ${
+                aiTestResult.success
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+              }`}
+            >
+              <p className="font-medium">{aiTestResult.success ? '✓ Conectado' : '✗ Falha'}</p>
+              <p>{aiTestResult.message}</p>
+              {aiTestResult.response_time_ms > 0 && (
+                <p className="mt-1 opacity-80">Resposta: {aiTestResult.response_time_ms}ms</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
