@@ -92,9 +92,9 @@ export function mapSignUpError(error: unknown, context: SignUpContext): string {
       pwMsg.includes('curt') ||
       pwMsg.includes('mínimo')
     ) {
-      return 'A senha deve ter no mínimo 8 caracteres.'
+      return 'Senha muito curta.'
     }
-    return 'Senha inválida. Verifique os requisitos.'
+    return 'Senha muito curta.'
   }
 
   if (fields.includes('name')) {
@@ -110,12 +110,12 @@ export function mapSignUpError(error: unknown, context: SignUpContext): string {
   }
 
   if (context === 'createPatient') {
-    return 'Sua conta foi criada, mas houve um erro ao configurar seu perfil. Por favor, entre em contato com o suporte.'
+    return 'Erro ao criar sua conta. Tente novamente.'
   }
 
   if (context === 'login') {
-    return 'Erro ao autenticar. Tente fazer login com seus dados.'
+    return 'Erro ao criar sua conta. Tente novamente.'
   }
 
-  return 'Erro ao criar sua conta. Verifique os campos e tente novamente.'
+  return 'Erro ao criar sua conta. Tente novamente.'
 }
