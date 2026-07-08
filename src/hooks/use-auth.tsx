@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import pb from '@/lib/pocketbase/client'
 import { Role, User } from '@/lib/types'
 import { extractFieldErrors, type FieldErrors } from '@/lib/pocketbase/errors'
-import { logAuthError, mapSignUpError } from '@/lib/auth-errors'
+import { logAuthError, mapSignUpError, mapSignInError } from '@/lib/auth-errors'
 
 interface AuthContextType {
   user: User | null
@@ -13,7 +13,7 @@ interface AuthContextType {
     password: string,
     role: Role,
   ) => Promise<{ error: any; message: string | null; fieldErrors: FieldErrors }>
-  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signIn: (email: string, password: string) => Promise<{ error: any; message: string | null }>
   signOut: () => void
   loading: boolean
 }
@@ -88,7 +88,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await pb.collection('users').authWithPassword(email, password)
     } catch (error) {
       logAuthError('use-auth.tsx:signUp:Step2_AutoLogin', error)
-      // Cleanup: attempt to delete the orphaned user record
       if (createdUserId) {
         try {
           await pb.collection('users').delete(createdUserId)
@@ -99,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       pb.authStore.clear()
       return {
         error,
-        message: 'Erro ao autenticar. Tente fazer login com seus dados.',
+        message: mapSignUpError(error, 'login'),
         fieldErrors: {},
       }
     }
@@ -145,7 +144,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await pb.collection('users').authWithPassword(email, password)
       return { error: null }
     } catch (error) {
-      return { error }
+      logAuthError('use-auth.tsx:signIn', error)
+      return { error, message: mapSignInError(error) }
     }
   }
 

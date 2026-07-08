@@ -30,6 +30,34 @@ export function logAuthError(source: string, error: unknown): void {
   }
 }
 
+export function mapSignInError(error: unknown): string {
+  if (!(error instanceof ClientResponseError)) {
+    return 'Erro de conexão. Verifique sua internet e tente novamente.'
+  }
+
+  if (error.isAbort) {
+    return 'Operação cancelada.'
+  }
+
+  if (error.status === 0) {
+    return 'Erro de conexão. Verifique sua internet e tente novamente.'
+  }
+
+  if (error.status === 400) {
+    return 'Falha na autenticação. Verifique suas credenciais.'
+  }
+
+  if (error.status === 429) {
+    return 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.'
+  }
+
+  if (error.status >= 500) {
+    return 'Erro no servidor. Tente novamente em instantes.'
+  }
+
+  return 'Falha na autenticação. Verifique suas credenciais.'
+}
+
 export function mapSignUpError(error: unknown, context: SignUpContext): string {
   if (!(error instanceof ClientResponseError)) {
     return 'Erro ao criar sua conta. Verifique sua conexão e tente novamente.'
@@ -56,12 +84,38 @@ export function mapSignUpError(error: unknown, context: SignUpContext): string {
   }
 
   if (fields.includes('password')) {
-    return 'Senha muito curta. Use pelo menos 8 caracteres.'
+    const pwCode = data?.password?.code || ''
+    const pwMsg = (fieldErrors.password || '').toLowerCase()
+    if (
+      pwCode === 'validation_min_text_constraint' ||
+      pwMsg.includes('short') ||
+      pwMsg.includes('curt') ||
+      pwMsg.includes('mínimo')
+    ) {
+      return 'A senha deve ter no mínimo 8 caracteres.'
+    }
+    return 'Senha inválida. Verifique os requisitos.'
+  }
+
+  if (fields.includes('name')) {
+    return 'Nome é obrigatório.'
+  }
+
+  if (fields.includes('passwordConfirm')) {
+    return 'As senhas não coincidem.'
+  }
+
+  if (error.status === 0) {
+    return 'Erro de conexão. Verifique sua internet e tente novamente.'
   }
 
   if (context === 'createPatient') {
     return 'Sua conta foi criada, mas houve um erro ao configurar seu perfil. Por favor, entre em contato com o suporte.'
   }
 
-  return 'Erro ao criar sua conta. Verifique sua conexão e tente novamente.'
+  if (context === 'login') {
+    return 'Erro ao autenticar. Tente fazer login com seus dados.'
+  }
+
+  return 'Erro ao criar sua conta. Verifique os campos e tente novamente.'
 }

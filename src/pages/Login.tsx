@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { mapSignInError } from '@/lib/auth-errors'
 import { Utensils } from 'lucide-react'
 
 export default function Login() {
@@ -26,8 +26,8 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await signIn(email, password)
-    if (error) setError(getErrorMessage(error))
+    const { error, message } = await signIn(email, password)
+    if (error) setError(message || mapSignInError(error))
     setLoading(false)
   }
 
