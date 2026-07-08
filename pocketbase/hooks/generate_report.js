@@ -7,6 +7,8 @@ routerAdd(
     const period = body.period || 'weekly'
     if (!patientId) return e.badRequestError('patient_id is required')
 
+    var startTime = new Date().getTime()
+
     try {
       const patient = $app.findRecordById('patients', patientId)
       const days =
@@ -19,7 +21,7 @@ routerAdd(
         patientName = userRec.getString('name')
       } catch (_) {}
 
-      let meals = []
+      var meals = []
       try {
         meals = $app.findRecordsByFilter(
           'meals',
@@ -32,7 +34,7 @@ routerAdd(
         )
       } catch (_) {}
 
-      let alerts = []
+      var alerts = []
       try {
         alerts = $app.findRecordsByFilter(
           'alerts',
@@ -44,7 +46,7 @@ routerAdd(
         )
       } catch (_) {}
 
-      let notes = []
+      var notes = []
       try {
         notes = $app.findRecordsByFilter(
           'professional_notes',
@@ -56,7 +58,7 @@ routerAdd(
         )
       } catch (_) {}
 
-      let calorieLogs = []
+      var calorieLogs = []
       try {
         calorieLogs = $app.findRecordsByFilter(
           'calorie_logs',
@@ -83,11 +85,26 @@ routerAdd(
                   m.getInt('carbs') +
                   'g F:' +
                   m.getInt('fats') +
+                  'g Fib:' +
+                  m.getInt('fibers') +
                   'g'
                 )
               })
               .join('\n')
-          : 'Sem refeicoes registradas no periodo.'
+          : 'Sem refeições registradas no período.'
+
+      var patientContext = 'Paciente: ' + patientName
+      if (patient.getInt('age')) patientContext += ', ' + patient.getInt('age') + ' anos'
+      if (patient.getString('gender')) patientContext += ', ' + patient.getString('gender')
+      if (patient.getInt('weight')) patientContext += ', ' + patient.getInt('weight') + 'kg'
+      if (patient.getInt('height')) patientContext += ', ' + patient.getInt('height') + 'cm'
+      if (patient.getString('condition'))
+        patientContext += ', condição: ' + patient.getString('condition')
+      if (patient.getString('restrictions'))
+        patientContext += ', restrições: ' + patient.getString('restrictions')
+      if (patient.getString('allergies'))
+        patientContext += ', alergias: ' + patient.getString('allergies')
+      patientContext += ', meta calórica: ' + patient.getInt('calorie_goal') + ' kcal/dia'
 
       const reply = $ai.chat({
         model: 'fast',
@@ -95,35 +112,37 @@ routerAdd(
           {
             role: 'system',
             content:
-              'Voce e um nutricionista clinico. Gere um relatorio conciso em portugues sobre a adesao nutricional do paciente. Maximo 3 paragrafos.',
+              'Você é um nutricionista clínico. Gere um relatório conciso em português (pt-BR) sobre a adesão nutricional do paciente. Máximo 3 parágrafos. Identifique excessos, deficiências e padrões. Não prescreva tratamentos.',
           },
           {
             role: 'user',
-            content:
-              'Paciente: ' +
-              patient.getString('condition') +
-              ', Meta: ' +
-              patient.getInt('calorie_goal') +
-              'kcal/dia\nRefeicoes:\n' +
-              mealSummary,
+            content: patientContext + '\nPeríodo: ' + period + '\nRefeições:\n' + mealSummary,
           },
         ],
       })
       const content = reply.choices[0].message.content
+      var elapsed = new Date().getTime() - startTime
+
+      var estimatedCost = 0
+      if (reply.usage) {
+        var promptTokens = reply.usage.prompt_tokens || 0
+        var completionTokens = reply.usage.completion_tokens || 0
+        estimatedCost = (promptTokens * 0.15 + completionTokens * 0.6) / 1000000
+      }
 
       var lines = []
-      lines.push('RELATORIO NUTRICIONAL - NutriCare')
+      lines.push('RELATÓRIO NUTRICIONAL - NutriCare')
       lines.push('')
       lines.push('Paciente: ' + patientName)
-      lines.push('Condicao: ' + patient.getString('condition'))
-      lines.push('Meta calorica: ' + patient.getInt('calorie_goal') + ' kcal/dia')
-      lines.push('Periodo: ' + period)
+      lines.push('Condição: ' + patient.getString('condition'))
+      lines.push('Meta calórica: ' + patient.getInt('calorie_goal') + ' kcal/dia')
+      lines.push('Período: ' + period)
       lines.push('')
       lines.push('=== RESUMO IA ===')
       var cl = content.split('\n')
       for (var i = 0; i < cl.length; i++) lines.push(cl[i])
       lines.push('')
-      lines.push('=== REFEICOES (' + meals.length + ') ===')
+      lines.push('=== REFEIÇÕES (' + meals.length + ') ===')
       for (var i = 0; i < meals.length; i++) {
         var m = meals[i]
         lines.push(m.getString('name') + ' - ' + m.getInt('calories') + 'kcal')
@@ -138,7 +157,7 @@ routerAdd(
       lines.push('=== NOTAS PROFISSIONAIS (' + notes.length + ') ===')
       for (var i = 0; i < notes.length; i++) lines.push(notes[i].getString('note'))
       lines.push('')
-      lines.push('=== EVOLUCAO CALORICA ===')
+      lines.push('=== EVOLUÇÃO CALÓRICA ===')
       for (var i = 0; i < calorieLogs.length; i++)
         lines.push(
           calorieLogs[i].getString('date').substring(0, 10) +
@@ -149,7 +168,7 @@ routerAdd(
       lines.push('')
       lines.push('')
       lines.push('___________________________')
-      lines.push('Responsavel Tecnico')
+      lines.push('Responsável Técnico')
       lines.push('Nutricionista CRN: ____________')
 
       var pdfContent = ''
@@ -202,18 +221,21 @@ routerAdd(
 
       const logCol = $app.findCollectionByNameOrId('chatgpt_analysis_logs')
       const log = new Record(logCol)
-      log.set('prompt', 'Relatorio para paciente ' + patientId + ', periodo: ' + period)
+      log.set('prompt', 'Relatório para paciente ' + patientId + ', período: ' + period)
       log.set('response', content)
       log.set('user_id', e.auth ? e.auth.id : '')
       log.set('type', 'report_generation')
+      log.set('model_used', 'fast')
+      log.set('response_time_ms', elapsed)
+      log.set('estimated_cost', estimatedCost)
       $app.saveNoValidate(log)
 
       return e.json(200, { summary: content, id: report.id })
     } catch (err) {
       if (err instanceof SkipAiConfigError)
-        return e.json(503, { error: 'AI temporariamente indisponivel' })
+        return e.json(503, { error: 'AI temporariamente indisponível' })
       if (err instanceof SkipAiError)
-        return e.json(502, { error: 'AI temporariamente indisponivel' })
+        return e.json(502, { error: 'AI temporariamente indisponível' })
       throw err
     }
   },

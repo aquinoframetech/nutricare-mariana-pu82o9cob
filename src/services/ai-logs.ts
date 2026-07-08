@@ -6,6 +6,9 @@ export interface AiLog {
   response: string
   user_id: string
   type: string
+  model_used: string
+  response_time_ms: number
+  estimated_cost: number
   created: string
   updated: string
   expand?: { user_id?: { id: string; name: string; email: string } }

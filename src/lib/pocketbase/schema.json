@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-08T13:12:21.922Z",
+  "generatedAt": "2026-07-08T16:14:51.917Z",
   "collections": [
     {
       "name": "users",
@@ -311,6 +311,18 @@
         {
           "name": "ai_notes",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fibers",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sodium",
+          "type": "number",
           "required": false,
           "system": false
         }
@@ -670,6 +682,24 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "model_used",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "response_time_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estimated_cost",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_analysis_logs_user ON chatgpt_analysis_logs (user_id)"]

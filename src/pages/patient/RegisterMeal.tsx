@@ -23,6 +23,8 @@ export default function RegisterMeal() {
   const [protein, setProtein] = useState(0)
   const [carbs, setCarbs] = useState(0)
   const [fat, setFat] = useState(0)
+  const [fibers, setFibers] = useState(0)
+  const [sodium, setSodium] = useState(0)
   const { user } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -39,6 +41,8 @@ export default function RegisterMeal() {
           setProtein(meal.proteins || 0)
           setCarbs(meal.carbs || 0)
           setFat(meal.fats || 0)
+          setFibers(meal.fibers || 0)
+          setSodium(meal.sodium || 0)
           setStep(3)
         }
       }
@@ -83,7 +87,7 @@ export default function RegisterMeal() {
   const handleConfirm = async () => {
     if (!mealId) return
     try {
-      await updateMeal(mealId, { calories, proteins: protein, carbs, fats: fat })
+      await updateMeal(mealId, { calories, proteins: protein, carbs, fats: fat, fibers, sodium })
       setStep(4)
       setTimeout(() => {
         toast({ title: 'Refeição registrada com sucesso!' })
@@ -232,6 +236,22 @@ export default function RegisterMeal() {
               <div className="space-y-2">
                 <Label>Gorduras (g)</Label>
                 <Input type="number" value={fat} onChange={(e) => setFat(Number(e.target.value))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Fibras (g)</Label>
+                <Input
+                  type="number"
+                  value={fibers}
+                  onChange={(e) => setFibers(Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Sódio (mg)</Label>
+                <Input
+                  type="number"
+                  value={sodium}
+                  onChange={(e) => setSodium(Number(e.target.value))}
+                />
               </div>
             </div>
           </div>

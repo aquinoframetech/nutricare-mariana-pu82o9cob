@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient } from '@/services/patients'
 import { getMealsWithPhotos, updateMeal } from '@/services/meals'
+import { generateReport } from '@/services/reports'
 import { useRealtime } from '@/hooks/use-realtime'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -67,14 +68,16 @@ export default function PatientDetail() {
     }
   }
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
+    if (!id) return
     setIsGenerating(true)
-    setTimeout(() => {
-      setReport(
-        'Resumo IA: A paciente manteve adesão calórica em 85% dos dias. Observa-se um déficit sistemático de proteínas nas refeições noturnas. Sugestão: Avaliar suplementação proteica no jantar.',
-      )
-      setIsGenerating(false)
-    }, 2000)
+    try {
+      const result = await generateReport(id, 'weekly')
+      setReport(result.summary)
+    } catch {
+      toast({ title: 'Erro ao gerar relatório.', variant: 'destructive' })
+    }
+    setIsGenerating(false)
   }
 
   const handleSendMessage = () => {
@@ -180,6 +183,9 @@ export default function PatientDetail() {
                           </Badge>
                           <Badge variant="outline" className="text-xs">
                             {meal.proteins ?? 0}P {meal.carbs ?? 0}C {meal.fats ?? 0}G
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            Fib: {meal.fibers ?? 0}g Na: {meal.sodium ?? 0}mg
                           </Badge>
                           {lowConfidence && (
                             <Badge variant="destructive" className="text-xs">

@@ -4,9 +4,11 @@ routerAdd(
   (e) => {
     try {
       const body = e.requestInfo().body || {}
-      const userId = e.auth?.id
+      const userId = e.auth ? e.auth.id : ''
       if (!userId) return e.unauthorizedError('auth required')
-      if (!body.message?.trim()) return e.badRequestError('message is required')
+      if (!body.message || !body.message.trim()) return e.badRequestError('message is required')
+
+      var startTime = new Date().getTime()
 
       const result = $ai.agent('nutri-assistant').chat({
         user_id: userId,
@@ -14,13 +16,22 @@ routerAdd(
         message: body.message,
       })
 
+      var elapsed = new Date().getTime() - startTime
+      var estimatedCost = 0
+      if (result.iterations) {
+        estimatedCost = result.iterations * 0.001
+      }
+
       try {
         const logCol = $app.findCollectionByNameOrId('chatgpt_analysis_logs')
         const log = new Record(logCol)
         log.set('prompt', body.message)
-        log.set('response', result.content)
+        log.set('response', result.content || '')
         log.set('user_id', userId)
         log.set('type', 'agent_chat')
+        log.set('model_used', 'fast')
+        log.set('response_time_ms', elapsed)
+        log.set('estimated_cost', estimatedCost)
         $app.saveNoValidate(log)
       } catch (_) {}
 

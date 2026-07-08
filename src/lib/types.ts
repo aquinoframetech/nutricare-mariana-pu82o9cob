@@ -41,6 +41,8 @@ export interface Meal {
   proteins: number
   carbs: number
   fats: number
+  fibers: number
+  sodium: number
   ai_food_identified: string
   ai_confidence: number
   calories_corrected: number
