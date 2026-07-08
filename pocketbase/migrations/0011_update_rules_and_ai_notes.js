@@ -1,20 +1,5 @@
 migrate(
   (app) => {
-    var usersCol = app.findCollectionByNameOrId('_pb_users_auth_')
-    var roleField = usersCol.fields.getByName('role')
-    if (roleField) {
-      usersCol.fields.remove(roleField)
-    }
-    usersCol.fields.add(
-      new SelectField({
-        name: 'role',
-        values: ['patient', 'nutritionist', 'admin'],
-        maxSelect: 1,
-      }),
-    )
-    usersCol.viewRule = "@request.auth.id != ''"
-    app.save(usersCol)
-
     var mealsCol = app.findCollectionByNameOrId('meals')
     if (!mealsCol.fields.getByName('ai_notes')) {
       mealsCol.fields.add(new TextField({ name: 'ai_notes' }))
@@ -98,7 +83,11 @@ migrate(
   (app) => {
     var mealsCol = app.findCollectionByNameOrId('meals')
     var f = mealsCol.fields.getByName('ai_notes')
-    if (f) mealsCol.fields.remove(f)
+    if (f) {
+      try {
+        mealsCol.fields.removeById(f.id)
+      } catch (_) {}
+    }
     app.save(mealsCol)
   },
 )

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-08T09:54:29.429Z",
+  "generatedAt": "2026-07-08T10:09:50.039Z",
   "collections": [
     {
       "name": "users",
@@ -55,11 +55,11 @@
       "name": "patients",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "view": "@request.auth.id != '' && (user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "list": "@request.auth.id != '' && (user_id = @request.auth.id || nutritionist_id = @request.auth.id)",
+        "view": "@request.auth.id != '' && (user_id = @request.auth.id || nutritionist_id = @request.auth.id)",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && (user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+        "update": "@request.auth.id != '' && (user_id = @request.auth.id || nutritionist_id = @request.auth.id)",
+        "delete": "@request.auth.id != '' && nutritionist_id = @request.auth.id"
       },
       "fields": [
         {
@@ -201,11 +201,11 @@
       "name": "meals",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
         "create": "@request.auth.id != '' && patient_id.user_id = @request.auth.id",
-        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "delete": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')"
+        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "delete": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)"
       },
       "fields": [
         {
@@ -294,6 +294,12 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "ai_notes",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -346,11 +352,11 @@
       "name": "alerts",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "delete": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id"
       },
       "fields": [
         {
@@ -399,11 +405,11 @@
       "name": "calorie_logs",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "delete": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id"
       },
       "fields": [
         {
@@ -446,11 +452,11 @@
       "name": "macro_logs",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+        "update": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "delete": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id"
       },
       "fields": [
         {
@@ -505,11 +511,11 @@
       "name": "professional_notes",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "create": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
-        "update": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
-        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "create": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id",
+        "update": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id",
+        "delete": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id"
       },
       "fields": [
         {
@@ -553,11 +559,11 @@
       "name": "reports",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || @request.auth.role = 'nutritionist')",
-        "create": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
-        "update": "@request.auth.id != '' && @request.auth.role = 'nutritionist'",
-        "delete": "@request.auth.id != '' && @request.auth.role = 'nutritionist'"
+        "list": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "view": "@request.auth.id != '' && (patient_id.user_id = @request.auth.id || patient_id.nutritionist_id = @request.auth.id)",
+        "create": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id",
+        "update": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id",
+        "delete": "@request.auth.id != '' && patient_id.nutritionist_id = @request.auth.id"
       },
       "fields": [
         {
