@@ -20,6 +20,20 @@ import {
 import { createPatient } from '@/services/patients'
 import { Role, NutritionistProfile } from '@/lib/types'
 import pb from '@/lib/pocketbase/client'
+import { z } from 'zod'
+import { Utensils } from 'lucide-react'
+
+const signupSchema = z
+  .object({
+    name: z.string().min(1, 'Nome é obrigatório'),
+    email: z.string().min(1, 'Email é obrigatório').email('Email inválido'),
+    password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
+    confirmPassword: z.string().min(1, 'Confirme sua senha'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'As senhas não coincidem',
+    path: ['confirmPassword'],
+  })
 
 export default function Signup() {
   const { signUp, isAuthenticated, user } = useAuth()
@@ -28,6 +42,7 @@ export default function Signup() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [age, setAge] = useState('')
   const [weight, setWeight] = useState('')
   const [height, setHeight] = useState('')
@@ -39,6 +54,7 @@ export default function Signup() {
   const [nutris, setNutris] = useState<NutritionistProfile[]>([])
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -53,6 +69,19 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const result = signupSchema.safeParse({ name, email, password, confirmPassword })
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      for (const issue of result.error.issues) {
+        const path = issue.path[0] as string
+        if (!errors[path]) errors[path] = issue.message
+      }
+      setValidationErrors(errors)
+      return
+    }
+    setValidationErrors({})
+
     setLoading(true)
     setError('')
     setFieldErrors({})
@@ -91,9 +120,12 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-blue-50 p-4">
       <Card className="w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
-        <CardHeader>
-          <CardTitle>Cadastro</CardTitle>
-          <CardDescription>Crie sua conta</CardDescription>
+        <CardHeader className="text-center">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-3">
+            <Utensils className="w-7 h-7 text-primary-foreground" />
+          </div>
+          <CardTitle className="text-2xl">Cadastro</CardTitle>
+          <CardDescription>Crie sua conta para começar</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -112,6 +144,9 @@ export default function Signup() {
             <div className="space-y-2">
               <Label>Nome</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} required />
+              {validationErrors.name && (
+                <p className="text-xs text-destructive">{validationErrors.name}</p>
+              )}
               {fieldErrors.name && <p className="text-xs text-destructive">{fieldErrors.name}</p>}
             </div>
             <div className="space-y-2">
@@ -122,6 +157,9 @@ export default function Signup() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+              {validationErrors.email && (
+                <p className="text-xs text-destructive">{validationErrors.email}</p>
+              )}
               {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
             </div>
             <div className="space-y-2">
@@ -133,8 +171,23 @@ export default function Signup() {
                 required
                 minLength={8}
               />
+              {validationErrors.password && (
+                <p className="text-xs text-destructive">{validationErrors.password}</p>
+              )}
               {fieldErrors.password && (
                 <p className="text-xs text-destructive">{fieldErrors.password}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Confirmar Senha</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+              {validationErrors.confirmPassword && (
+                <p className="text-xs text-destructive">{validationErrors.confirmPassword}</p>
               )}
             </div>
             {role === 'patient' && (

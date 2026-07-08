@@ -1,12 +1,14 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from './contexts/auth-context'
 import { DataProvider } from './contexts/data-context'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
 import Layout from './components/Layout'
 
 import Login from './pages/Login'
+import Signup from './pages/Signup'
 import NotFound from './pages/NotFound'
 
 // Patient Pages
@@ -32,21 +34,41 @@ const App = () => (
           <Sonner />
           <Routes>
             <Route element={<Layout />}>
+              {/* Public Routes */}
               <Route path="/" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
 
               {/* Patient Routes */}
-              <Route path="/patient" element={<PatientDashboard />} />
-              <Route path="/patient/register" element={<RegisterMeal />} />
-              <Route path="/patient/history" element={<History />} />
-              <Route path="/patient/assistant" element={<Assistant />} />
-              <Route path="/patient/profile" element={<Profile />} />
+              <Route
+                path="/patient"
+                element={
+                  <ProtectedRoute role="patient">
+                    <Outlet />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<PatientDashboard />} />
+                <Route path="register" element={<RegisterMeal />} />
+                <Route path="history" element={<History />} />
+                <Route path="assistant" element={<Assistant />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
 
               {/* Nutri Routes */}
-              <Route path="/nutri" element={<NutriDashboard />} />
-              <Route path="/nutri/patients" element={<PatientsList />} />
-              <Route path="/nutri/patients/:id" element={<PatientDetail />} />
-              <Route path="/nutri/alerts" element={<Alerts />} />
-              <Route path="/nutri/chat" element={<NutriChat />} />
+              <Route
+                path="/nutri"
+                element={
+                  <ProtectedRoute role="nutritionist">
+                    <Outlet />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<NutriDashboard />} />
+                <Route path="patients" element={<PatientsList />} />
+                <Route path="patients/:id" element={<PatientDetail />} />
+                <Route path="alerts" element={<Alerts />} />
+                <Route path="chat" element={<NutriChat />} />
+              </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
