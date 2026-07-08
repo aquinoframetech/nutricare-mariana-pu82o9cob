@@ -7,7 +7,7 @@ routerAdd(
       if (!userId) return e.unauthorizedError('auth required')
       return e.json(
         200,
-        $ai.agent('nutricare-assistant').listMessages({
+        $ai.agent('nutri-assistant').listMessages({
           conversation_id: e.request.pathValue('conversationId'),
           user_id: userId,
         }),

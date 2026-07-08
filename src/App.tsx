@@ -14,12 +14,14 @@ import PatientDashboard from './pages/patient/Dashboard'
 import RegisterMeal from './pages/patient/RegisterMeal'
 import History from './pages/patient/History'
 import Profile from './pages/patient/Profile'
+import Assistant from './pages/patient/Assistant'
 
 // Nutri Pages
 import NutriDashboard from './pages/nutri/Dashboard'
 import PatientsList from './pages/nutri/PatientsList'
 import PatientDetail from './pages/nutri/PatientDetail'
 import Alerts from './pages/nutri/Alerts'
+import NutriChat from './pages/nutri/Chat'
 
 const App = () => (
   <BrowserRouter>
@@ -36,6 +38,7 @@ const App = () => (
               <Route path="/patient" element={<PatientDashboard />} />
               <Route path="/patient/register" element={<RegisterMeal />} />
               <Route path="/patient/history" element={<History />} />
+              <Route path="/patient/assistant" element={<Assistant />} />
               <Route path="/patient/profile" element={<Profile />} />
 
               {/* Nutri Routes */}
@@ -43,6 +46,7 @@ const App = () => (
               <Route path="/nutri/patients" element={<PatientsList />} />
               <Route path="/nutri/patients/:id" element={<PatientDetail />} />
               <Route path="/nutri/alerts" element={<Alerts />} />
+              <Route path="/nutri/chat" element={<NutriChat />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

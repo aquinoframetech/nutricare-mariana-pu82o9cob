@@ -11,7 +11,7 @@ routerAdd(
       const log = new Record(logCol)
       log.set('prompt', description)
       log.set('user_id', e.auth?.id || '')
-      log.set('type', 'meal_analysis')
+      log.set('type', 'vision_analysis')
       $app.saveNoValidate(log)
 
       const reply = $ai.chat({

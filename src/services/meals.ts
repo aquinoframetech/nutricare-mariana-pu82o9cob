@@ -65,3 +65,17 @@ export const analyzeMealDescription = (description: string) =>
     body: JSON.stringify({ description }),
     headers: { 'Content-Type': 'application/json' },
   })
+
+export type MealWithPhoto = Meal & { photoUrl: string }
+
+export const getMealsWithPhotos = async (patientId: string): Promise<MealWithPhoto[]> => {
+  const meals = await getMealsByPatient(patientId)
+  const result: MealWithPhoto[] = []
+  for (const meal of meals) {
+    const photos = await getMealPhotos(meal.id)
+    const photoUrl =
+      photos.length > 0 ? getMealPhotoUrl(photos[0] as any, (photos[0] as any).image) : ''
+    result.push({ ...meal, photoUrl })
+  }
+  return result
+}

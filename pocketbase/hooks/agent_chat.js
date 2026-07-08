@@ -8,7 +8,7 @@ routerAdd(
       if (!userId) return e.unauthorizedError('auth required')
       if (!body.message?.trim()) return e.badRequestError('message is required')
 
-      const result = $ai.agent('nutricare-assistant').chat({
+      const result = $ai.agent('nutri-assistant').chat({
         user_id: userId,
         conversation_id: body.conversation_id || null,
         message: body.message,
