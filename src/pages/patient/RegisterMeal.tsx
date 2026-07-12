@@ -112,7 +112,6 @@ export default function RegisterMeal() {
         className="hidden"
         onChange={(e) => handleFileSelect(e.target.files?.[0])}
       />
-
       {step === 1 && (
         <div className="animate-fade-in space-y-4">
           <p className="text-muted-foreground text-sm">
@@ -151,12 +150,11 @@ export default function RegisterMeal() {
           </Button>
           {file && (
             <Button size="lg" className="w-full" onClick={handleAnalyze}>
-              Analisar com IA <ChevronRight className="w-5 h-5 ml-2" />
+              Análise assistida por IA <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
           )}
         </div>
       )}
-
       {step === 2 && (
         <div className="animate-fade-in space-y-6 flex flex-col items-center pt-8">
           {photoPreview && (
@@ -167,14 +165,11 @@ export default function RegisterMeal() {
           )}
           <div className="text-center space-y-2">
             <Loader2 className="w-8 h-8 mx-auto animate-spin text-primary" />
-            <h3 className="font-bold text-lg">Analisando imagem...</h3>
-            <p className="text-sm text-muted-foreground">
-              Identificando alimentos e estimando nutrientes
-            </p>
+            <h3 className="font-bold text-lg">Análise assistida por IA...</h3>
+            <p className="text-sm text-muted-foreground">Gerando estimativa nutricional</p>
           </div>
         </div>
       )}
-
       {step === 3 && analysisResult && (
         <div className="animate-slide-up space-y-6">
           <Card className="border-none shadow-subtle">
@@ -205,7 +200,7 @@ export default function RegisterMeal() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Confirmar Valores</h3>
+              <h3 className="font-semibold text-sm">Valores sujeitos à confirmação</h3>
               <span className="text-xs text-muted-foreground">Ajuste se necessário</span>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -267,7 +262,6 @@ export default function RegisterMeal() {
           </Button>
         </div>
       )}
-
       {step === 4 && (
         <div className="animate-slide-up flex flex-col items-center justify-center py-20 text-center space-y-4">
           <CheckCircle2 className="w-20 h-20 text-primary animate-fade-in-up" />
@@ -275,17 +269,25 @@ export default function RegisterMeal() {
           <p className="text-muted-foreground">Refeição registrada com sucesso.</p>
         </div>
       )}
-
       {step === 5 && (
         <div className="animate-fade-in flex flex-col items-center justify-center py-20 text-center space-y-4">
-          <AlertCircle className="w-16 h-16 text-amber-500" />
-          <h2 className="text-xl font-bold">Tempo esgotado</h2>
-          <p className="text-muted-foreground">
-            A análise demorou mais que o esperado. Tente novamente.
+          <div className="w-20 h-20 rounded-full border-4 border-[#f59e0b] flex items-center justify-center mb-2">
+            <span className="text-[#f59e0b] text-5xl font-bold -mt-1">!</span>
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Tempo esgotado</h2>
+          <p className="text-muted-foreground text-[15px] max-w-[260px] leading-snug">
+            A análise demorou mais que o esperado.
+            <br />
+            Tente novamente.
           </p>
-          <Button onClick={() => navigate('/patient')}>Voltar ao início</Button>
+          <Button
+            onClick={() => navigate('/patient')}
+            className="mt-4 rounded-full bg-[#10b981] hover:bg-[#059669] text-white px-8 h-12 text-base font-medium"
+          >
+            Voltar ao início
+          </Button>
         </div>
-      )}
+      )}{' '}
     </div>
   )
 }

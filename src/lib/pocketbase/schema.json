@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-12T15:34:39.738Z",
+  "generatedAt": "2026-07-12T17:10:52.762Z",
   "collections": [
     {
       "name": "users",
@@ -901,6 +901,147 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_meal_edit_logs_meal ON meal_edit_logs (meal_id)"]
+    },
+    {
+      "name": "analysis_profiling_logs",
+      "type": "base",
+      "apiRules": {
+        "list": null,
+        "view": null,
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "request_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "meal_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "meals"
+        },
+        {
+          "name": "total_time_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "image_size_kb",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "image_dimensions",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "model_used",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "openai_status",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timeout_source",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["frontend", "backend", "openai", "unknown"]
+        },
+        {
+          "name": "ts_request_received",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dur_image_validation_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dur_image_processing_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dur_openai_request_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dur_openai_response_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dur_response_parsing_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dur_nutrition_processing_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dur_database_save_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dur_response_sent_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_analysis_profiling_req ON analysis_profiling_logs (request_id)"
+      ]
     }
   ]
 }
