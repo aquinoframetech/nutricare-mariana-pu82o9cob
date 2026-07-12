@@ -202,6 +202,17 @@ export default function RegisterMeal() {
     }
   }, [step])
 
+  useEffect(() => {
+    if (isSubmitting || step === 2 || step === 3) {
+      const handler = (e: BeforeUnloadEvent) => {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+      window.addEventListener('beforeunload', handler)
+      return () => window.removeEventListener('beforeunload', handler)
+    }
+  }, [isSubmitting, step])
+
   const clearError = useCallback(() => {
     if (errorMessage) setErrorMessage(null)
   }, [errorMessage])
@@ -246,7 +257,13 @@ export default function RegisterMeal() {
 
     clearError()
 
-    if (!pb.authStore.isValid) {
+    if (pb.authStore.isValid) {
+      try {
+        await pb.collection('users').authRefresh()
+      } catch {
+        // Token refresh failed — attempt upload anyway; backend will reject if truly invalid
+      }
+    } else {
       setErrorMessage({ title: 'Sessão expirada. Faça login novamente.', icon: 'auth' })
       toast({ title: 'Sessão expirada. Redirecionando para login...', variant: 'destructive' })
       setTimeout(() => navigate('/'), 2000)
@@ -260,6 +277,7 @@ export default function RegisterMeal() {
       const result = await submitMealAnalysis(file, description || 'Refeição', crid)
       if (result.meal_id) {
         setMealId(result.meal_id)
+        toast({ title: 'Refeição enviada com sucesso!' })
         if (result.status === 'awaiting_confirmation') {
           try {
             const meal = await getMeal(result.meal_id)
@@ -291,6 +309,7 @@ export default function RegisterMeal() {
         variant: 'destructive',
         description: categorized.description,
       })
+      // Preserve file, photoPreview, and description so the user can retry without re-selecting
     } finally {
       setIsSubmitting(false)
     }
@@ -411,7 +430,7 @@ export default function RegisterMeal() {
               size="lg"
               className="w-full"
               onClick={handleSubmit}
-              disabled={isSubmitting || isCompressing || !!errorMessage}
+              disabled={isSubmitting || isCompressing}
             >
               {isSubmitting || isCompressing ? (
                 <>
@@ -420,7 +439,8 @@ export default function RegisterMeal() {
                 </>
               ) : (
                 <>
-                  Enviar para Análise <ChevronRight className="w-5 h-5 ml-2" />
+                  {errorMessage ? 'Tentar Novamente' : 'Enviar para Análise'}{' '}
+                  <ChevronRight className="w-5 h-5 ml-2" />
                 </>
               )}
             </Button>
