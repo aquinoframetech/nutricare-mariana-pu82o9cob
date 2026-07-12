@@ -34,6 +34,7 @@ export default function RegisterMeal() {
   const [fibers, setFibers] = useState(0)
   const [sodium, setSodium] = useState(0)
   const [isRetrying, setIsRetrying] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -69,13 +70,20 @@ export default function RegisterMeal() {
   }
 
   const handleSubmit = async () => {
-    if (!file || !user) return
+    if (!file || !user || isSubmitting) return
+    setIsSubmitting(true)
     try {
       const result = await submitMealAnalysis(file, description || 'Refeição')
-      setMealId(result.meal_id)
-      setStep(2)
+      if (result.meal_id) {
+        setMealId(result.meal_id)
+        setStep(2)
+      } else {
+        throw new Error('Invalid response from server')
+      }
     } catch {
       toast({ title: 'Erro ao enviar refeição. Tente novamente.', variant: 'destructive' })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -157,8 +165,16 @@ export default function RegisterMeal() {
             <Upload className="w-5 h-5 mr-2" /> Escolher da Galeria
           </Button>
           {file && (
-            <Button size="lg" className="w-full" onClick={handleSubmit}>
-              Enviar para Análise <ChevronRight className="w-5 h-5 ml-2" />
+            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Enviando...
+                </>
+              ) : (
+                <>
+                  Enviar para Análise <ChevronRight className="w-5 h-5 ml-2" />
+                </>
+              )}
             </Button>
           )}
         </div>

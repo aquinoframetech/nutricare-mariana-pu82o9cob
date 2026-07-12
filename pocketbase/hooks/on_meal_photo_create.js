@@ -26,8 +26,7 @@ onRecordAfterCreateSuccess((e) => {
     try {
       var existingJob = $app.findFirstRecordByFilter(
         'meal_analysis_queue',
-        'meal_id = {:mid}',
-        (mid = mealId),
+        "meal_id = '" + mealId + "'",
       )
       existingJob.set('status', 'pending')
       existingJob.set('attempts', 0)
@@ -37,7 +36,6 @@ onRecordAfterCreateSuccess((e) => {
       existingJob.set('next_retry_at', '')
       existingJob.set('started_at', '')
       existingJob.set('finished_at', '')
-      existingJob.set('request_id', requestId)
       $app.saveNoValidate(existingJob)
     } catch (_) {
       var queueCol = $app.findCollectionByNameOrId('meal_analysis_queue')

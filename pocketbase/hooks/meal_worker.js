@@ -31,11 +31,10 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
   try {
     jobs = $app.findRecordsByFilter(
       'meal_analysis_queue',
-      'locked_by = {:wid}',
+      "locked_by = '" + workerId + "'",
       '-created',
       1,
       0,
-      (wid = workerId),
     )
   } catch (_) {
     return
@@ -79,11 +78,10 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
     var tImgVal = Date.now()
     var photos = $app.findRecordsByFilter(
       'meal_photos',
-      'meal_id = {:mid}',
+      "meal_id = '" + mealId + "'",
       '-created',
       1,
       0,
-      (mid = mealId),
     )
     durImgVal = Date.now() - tImgVal
     if (photos.length === 0) {

@@ -59,9 +59,7 @@ onRecordAfterUpdateSuccess((e) => {
     try {
       calorieLog = $app.findFirstRecordByFilter(
         'calorie_logs',
-        'patient_id = {:pid} && date >= {:since}',
-        (pid = patientId),
-        (since = startOfDay),
+        "patient_id = '" + patientId + "' && date >= '" + startOfDay + "'",
       )
       calorieLog.set('calories', calorieLog.getInt('calories') + dCal)
       $app.save(calorieLog)
@@ -76,9 +74,7 @@ onRecordAfterUpdateSuccess((e) => {
     try {
       macroLog = $app.findFirstRecordByFilter(
         'macro_logs',
-        'patient_id = {:pid} && date >= {:since}',
-        (pid = patientId),
-        (since = startOfDay),
+        "patient_id = '" + patientId + "' && date >= '" + startOfDay + "'",
       )
       macroLog.set('proteins', macroLog.getInt('proteins') + dProt)
       macroLog.set('carbs', macroLog.getInt('carbs') + dCarb)
@@ -133,12 +129,10 @@ onRecordAfterUpdateSuccess((e) => {
         try {
           var prev = $app.findRecordsByFilter(
             'meals',
-            'patient_id = {:pid} && timestamp < {:cur}',
+            "patient_id = '" + patientId + "' && timestamp < '" + mealTs + "'",
             '-timestamp',
             1,
             0,
-            (pid = patientId),
-            (cur = mealTs),
           )
           if (prev.length > 0) {
             var pt = new Date(prev[0].getString('timestamp'))

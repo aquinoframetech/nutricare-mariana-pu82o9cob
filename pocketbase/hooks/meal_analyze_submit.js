@@ -21,7 +21,7 @@ routerAdd(
 
     var patient
     try {
-      patient = $app.findFirstRecordByFilter('patients', 'user_id = {:uid}', (uid = userId))
+      patient = $app.findFirstRecordByFilter('patients', "user_id = '" + userId + "'")
     } catch (_) {
       return e.badRequestError('Perfil de paciente não encontrado')
     }
@@ -35,6 +35,21 @@ routerAdd(
     meal.set('timestamp', new Date().toISOString())
     meal.set('analysis_status', 'processing')
     $app.save(meal)
+
+    var requestId = $security.randomString(32)
+    try {
+      var queueCol = $app.findCollectionByNameOrId('meal_analysis_queue')
+      var job = new Record(queueCol)
+      job.set('request_id', requestId)
+      job.set('meal_id', meal.id)
+      job.set('status', 'pending')
+      job.set('attempts', 0)
+      $app.saveNoValidate(job)
+    } catch (err) {
+      $app
+        .logger()
+        .error('Failed to enqueue meal analysis', 'error', err.message, 'meal_id', meal.id)
+    }
 
     var photosCol = $app.findCollectionByNameOrId('meal_photos')
     var photo = new Record(photosCol)
