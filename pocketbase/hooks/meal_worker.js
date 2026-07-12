@@ -68,6 +68,8 @@ cronAdd('meal_worker', '* * * * *', () => {
   var isTransient = false
   var errorSanitized = ''
   var userId = ''
+  var lastCheckpoint = 'job_claimed'
+  var imageSizeBytes = 0
 
   try {
     var meal = $app.findRecordById('meals', mealId)
@@ -130,33 +132,113 @@ cronAdd('meal_worker', '* * * * *', () => {
     var imageUrl = baseUrl + '/api/files/meal_photos/' + photo.id + '/' + filename
     var imageDataUrl = ''
 
+    $app
+      .logger()
+      .info(
+        'worker.image_processing_start',
+        'meal_id',
+        mealId,
+        'photo_id',
+        photo.id,
+        'filename',
+        filename,
+      )
+
     try {
+      lastCheckpoint = 'image_fetch_start'
+      var tFetch = Date.now()
       var imgRes = $http.send({
         url: imageUrl,
         method: 'GET',
         headers: { Authorization: token },
         timeout: 15,
       })
-      if (imgRes.statusCode === 200 && imgRes.body) {
-        var body = imgRes.body
-        imageSizeKb = Math.round(body.length / 1024)
-        var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-        var base64 = ''
-        var i = 0
-        while (i < body.length) {
-          var a = body[i++]
-          var b = i < body.length ? body[i++] : -1
-          var c = i < body.length ? body[i++] : -1
-          base64 += chars[a >> 2]
-          base64 += chars[((a & 3) << 4) | (b >= 0 ? b >> 4 : 0)]
-          base64 += b >= 0 ? chars[((b & 15) << 2) | (c >= 0 ? c >> 6 : 0)] : '='
-          base64 += c >= 0 ? chars[c & 63] : '='
-        }
-        imageDataUrl = 'data:image/jpeg;base64,' + base64
-      } else {
+      var durFetch = Date.now() - tFetch
+      lastCheckpoint = 'image_fetch_complete'
+
+      if (imgRes.statusCode !== 200 || !imgRes.body) {
         throw new Error('Image fetch failed with status ' + imgRes.statusCode)
       }
+
+      var body = imgRes.body
+      imageSizeBytes = body.length
+      imageSizeKb = Math.round(imageSizeBytes / 1024)
+
+      $app
+        .logger()
+        .info(
+          'worker.image_file_read_success',
+          'meal_id',
+          mealId,
+          'image_size_bytes',
+          imageSizeBytes,
+          'image_size_kb',
+          imageSizeKb,
+          'fetch_duration_ms',
+          durFetch,
+          'http_status',
+          imgRes.statusCode,
+        )
+
+      lastCheckpoint = 'base64_encode_start'
+      $app
+        .logger()
+        .info(
+          'worker.base64_conversion_starting',
+          'meal_id',
+          mealId,
+          'image_size_bytes',
+          imageSizeBytes,
+        )
+
+      var tB64 = Date.now()
+      var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+      var base64Parts = []
+      var bytesLen = imageSizeBytes
+      var b64idx = 0
+      while (b64idx < bytesLen) {
+        var b0 = body[b64idx++]
+        var b1 = b64idx < bytesLen ? body[b64idx++] : -1
+        var b2 = b64idx < bytesLen ? body[b64idx++] : -1
+        base64Parts.push(lookup[b0 >> 2])
+        base64Parts.push(lookup[((b0 & 3) << 4) | (b1 >= 0 ? b1 >> 4 : 0)])
+        base64Parts.push(b1 >= 0 ? lookup[((b1 & 15) << 2) | (b2 >= 0 ? b2 >> 6 : 0)] : '=')
+        base64Parts.push(b2 >= 0 ? lookup[b2 & 63] : '=')
+      }
+      var base64 = base64Parts.join('')
+
+      var durB64 = Date.now() - tB64
+      lastCheckpoint = 'base64_encode_complete'
+
+      $app
+        .logger()
+        .info(
+          'worker.base64_conversion_complete',
+          'meal_id',
+          mealId,
+          'base64_length',
+          base64.length,
+          'encode_duration_ms',
+          durB64,
+        )
+
+      imageDataUrl = 'data:image/jpeg;base64,' + base64
     } catch (fetchErr) {
+      $app
+        .logger()
+        .error(
+          'worker.image_processing_failed',
+          'meal_id',
+          mealId,
+          'last_checkpoint',
+          lastCheckpoint,
+          'error_type',
+          String(fetchErr.name || ''),
+          'error_message',
+          fetchErr.message,
+          'stack',
+          String(fetchErr.stack || ''),
+        )
       isPermanent = true
       errorSanitized = 'Failed to fetch image: ' + fetchErr.message
       timeoutSource = 'backend'
@@ -186,6 +268,10 @@ cronAdd('meal_worker', '* * * * *', () => {
       { type: 'image_url', image_url: { url: imageDataUrl } },
     ]
 
+    lastCheckpoint = 'ai_chat_call_start'
+    $app
+      .logger()
+      .info('worker.ai_gateway_reachable', 'meal_id', mealId, 'last_checkpoint', lastCheckpoint)
     var tAi = Date.now()
     var reply
     try {
@@ -197,9 +283,27 @@ cronAdd('meal_worker', '* * * * *', () => {
         ],
       })
       durAiReq = Date.now() - tAi
+      lastCheckpoint = 'ai_chat_response_received'
+      $app
+        .logger()
+        .info('worker.ai_gateway_response_received', 'meal_id', mealId, 'duration_ms', durAiReq)
     } catch (aiErr) {
       durAiReq = Date.now() - tAi
       openaiStatus = aiErr.status || 500
+      lastCheckpoint = 'ai_chat_failed'
+      $app
+        .logger()
+        .error(
+          'worker.ai_gateway_error',
+          'meal_id',
+          mealId,
+          'last_checkpoint',
+          lastCheckpoint,
+          'error_type',
+          String(aiErr.name || ''),
+          'error_message',
+          aiErr.message,
+        )
       timeoutSource = 'openai'
       if (aiErr instanceof SkipAiConfigError) {
         isPermanent = true
@@ -355,7 +459,27 @@ cronAdd('meal_worker', '* * * * *', () => {
     } catch (_) {}
   } catch (err) {
     var rawErr = String(err.message || err)
-    $app.logger().error('meal_worker_error', 'meal_id', mealId, 'error', rawErr)
+    var errType = String(err.name || 'Error')
+    var errStack = String(err.stack || '')
+    $app
+      .logger()
+      .error(
+        'meal_worker_error',
+        'meal_id',
+        mealId,
+        'error',
+        rawErr,
+        'error_type',
+        errType,
+        'last_checkpoint',
+        lastCheckpoint,
+        'image_size_bytes',
+        imageSizeBytes,
+        'image_size_kb',
+        imageSizeKb,
+        'stack',
+        errStack,
+      )
     if (!errorSanitized) errorSanitized = rawErr
     if (!timeoutSource || timeoutSource === 'unknown')
       timeoutSource = isPermanent ? 'backend' : 'openai'
