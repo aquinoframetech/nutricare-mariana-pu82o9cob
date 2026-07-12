@@ -1,8 +1,16 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
-import { submitMealAnalysis, retryMealAnalysis, updateMeal, getMeal } from '@/services/meals'
+import {
+  submitMealAnalysis,
+  retryMealAnalysis,
+  updateMeal,
+  getMeal,
+  confirmMeal,
+  categorizeMealError,
+} from '@/services/meals'
+import pb from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -14,11 +22,33 @@ import {
   Loader2,
   RefreshCw,
   Clock,
+  WifiOff,
+  ShieldAlert,
+  ImageOff,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Meal } from '@/lib/types'
+
+const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+
+function validateFile(file: File): string | null {
+  if (!file.type.startsWith('image/')) {
+    return 'Por favor, selecione um arquivo de imagem válido (JPG, PNG ou WebP).'
+  }
+  if (!VALID_IMAGE_TYPES.includes(file.type)) {
+    return 'Formato não suportado. Use JPG, PNG ou WebP.'
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return 'Imagem muito grande. O tamanho máximo é 5MB.'
+  }
+  if (file.size < 1024) {
+    return 'Imagem muito pequena. O arquivo pode estar corrompido.'
+  }
+  return null
+}
 
 export default function RegisterMeal() {
   const [step, setStep] = useState(1)
@@ -35,7 +65,13 @@ export default function RegisterMeal() {
   const [sodium, setSodium] = useState(0)
   const [isRetrying, setIsRetrying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
   const [clientRequestId, setClientRequestId] = useState('')
+  const [errorMessage, setErrorMessage] = useState<{
+    title: string
+    description?: string
+    icon: 'network' | 'auth' | 'file' | 'server'
+  } | null>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -64,8 +100,18 @@ export default function RegisterMeal() {
     !!mealId && (step === 2 || step === 5),
   )
 
+  const clearError = useCallback(() => {
+    if (errorMessage) setErrorMessage(null)
+  }, [errorMessage])
+
   const handleFileSelect = (selectedFile: File | undefined) => {
     if (!selectedFile) return
+    clearError()
+    const validationError = validateFile(selectedFile)
+    if (validationError) {
+      setErrorMessage({ title: validationError, icon: 'file' })
+      return
+    }
     setFile(selectedFile)
     setPhotoPreview(URL.createObjectURL(selectedFile))
     setClientRequestId(crypto.randomUUID())
@@ -83,6 +129,16 @@ export default function RegisterMeal() {
 
   const handleSubmit = async () => {
     if (!file || !user || isSubmitting) return
+
+    clearError()
+
+    if (!pb.authStore.isValid) {
+      setErrorMessage({ title: 'Sessão expirada. Faça login novamente.', icon: 'auth' })
+      toast({ title: 'Sessão expirada. Redirecionando para login...', variant: 'destructive' })
+      setTimeout(() => navigate('/'), 2000)
+      return
+    }
+
     const crid = clientRequestId || crypto.randomUUID()
     if (!clientRequestId) setClientRequestId(crid)
     setIsSubmitting(true)
@@ -107,18 +163,19 @@ export default function RegisterMeal() {
         throw new Error('Invalid response from server')
       }
     } catch (err: any) {
-      const errRequestId = err?.response?.request_id || 'unknown'
-      const errCode = err?.response?.internal_error_code || err?.response?.error || 'UNKNOWN'
-      console.error('[Meal Upload Error]', {
-        request_id: errRequestId,
-        internal_error_code: errCode,
-        client_request_id: crid,
-        error: err,
-      })
+      const categorized = categorizeMealError(err)
+      const icon: 'network' | 'auth' | 'file' | 'server' = categorized.title.includes('Conexão')
+        ? 'network'
+        : categorized.title.includes('Sessão')
+          ? 'auth'
+          : categorized.title.includes('Imagem') || categorized.title.includes('arquivo')
+            ? 'file'
+            : 'server'
+      setErrorMessage({ title: categorized.title, description: categorized.description, icon })
       toast({
-        title: 'Erro ao enviar refeição. Tente novamente.',
+        title: categorized.title,
         variant: 'destructive',
-        description: errCode !== 'UNKNOWN' ? `Código: ${errCode}` : undefined,
+        description: categorized.description,
       })
     } finally {
       setIsSubmitting(false)
@@ -139,21 +196,36 @@ export default function RegisterMeal() {
   }
 
   const handleConfirm = async () => {
-    if (!mealId) return
+    if (!mealId || isConfirming) return
+    setIsConfirming(true)
     try {
-      await updateMeal(mealId, { calories, proteins: protein, carbs, fats: fat, fibers, sodium })
+      await confirmMeal(mealId, { calories, proteins: protein, carbs, fats: fat, fibers, sodium })
       setStep(4)
       setTimeout(() => {
         toast({ title: 'Refeição registrada com sucesso!' })
         navigate('/patient')
       }, 1500)
-    } catch {
-      toast({ title: 'Erro ao salvar correções.', variant: 'destructive' })
+    } catch (err) {
+      const categorized = categorizeMealError(err)
+      toast({
+        title: categorized.title,
+        variant: 'destructive',
+        description: categorized.description,
+      })
+    } finally {
+      setIsConfirming(false)
     }
   }
 
   const confidence = analysisResult?.ai_confidence ?? 0
   const confidenceColor = confidence >= 0.7 ? 'text-green-600' : 'text-amber-600'
+
+  const ErrorIcon = ({ type }: { type: 'network' | 'auth' | 'file' | 'server' }) => {
+    if (type === 'network') return <WifiOff className="w-5 h-5 text-red-500" />
+    if (type === 'auth') return <ShieldAlert className="w-5 h-5 text-amber-500" />
+    if (type === 'file') return <ImageOff className="w-5 h-5 text-red-500" />
+    return <AlertCircle className="w-5 h-5 text-red-500" />
+  }
 
   return (
     <div className="p-4 max-w-md mx-auto space-y-6">
@@ -161,7 +233,7 @@ export default function RegisterMeal() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         capture="environment"
         className="hidden"
         onChange={(e) => handleFileSelect(e.target.files?.[0])}
@@ -171,6 +243,21 @@ export default function RegisterMeal() {
           <p className="text-muted-foreground text-sm">
             Tire uma foto do seu prato para a IA analisar.
           </p>
+          {errorMessage && (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900">
+              <ErrorIcon type={errorMessage.icon} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                  {errorMessage.title}
+                </p>
+                {errorMessage.description && (
+                  <p className="text-xs text-red-600 dark:text-red-500 mt-1">
+                    {errorMessage.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           {photoPreview && (
             <img
               src={photoPreview}
@@ -182,7 +269,10 @@ export default function RegisterMeal() {
             <Label>Descrição (opcional)</Label>
             <Input
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                setDescription(e.target.value)
+                clearError()
+              }}
               placeholder="Ex: Almoço com arroz, feijão e frango"
             />
           </div>
@@ -203,7 +293,12 @@ export default function RegisterMeal() {
             <Upload className="w-5 h-5 mr-2" /> Escolher da Galeria
           </Button>
           {file && (
-            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={handleSubmit}
+              disabled={isSubmitting || !!errorMessage}
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Enviando...
@@ -338,8 +433,16 @@ export default function RegisterMeal() {
               </CardContent>
             </Card>
           )}
-          <Button size="lg" className="w-full" onClick={handleConfirm}>
-            Confirmar Registro <ChevronRight className="w-5 h-5 ml-2" />
+          <Button size="lg" className="w-full" onClick={handleConfirm} disabled={isConfirming}>
+            {isConfirming ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Salvando...
+              </>
+            ) : (
+              <>
+                Confirmar Registro <ChevronRight className="w-5 h-5 ml-2" />
+              </>
+            )}
           </Button>
         </div>
       )}

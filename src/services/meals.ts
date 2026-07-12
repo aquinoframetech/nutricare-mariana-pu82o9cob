@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { ClientResponseError } from 'pocketbase'
 import { Meal, MealPhoto } from '@/lib/types'
 
 export const getMealsByPatient = async (patientId: string): Promise<Meal[]> =>
@@ -88,6 +89,67 @@ export const retryMealAnalysis = async (
   mealId: string,
 ): Promise<{ meal_id: string; status: string }> =>
   pb.send(`/backend/v1/meals/${mealId}/retry`, { method: 'POST' })
+
+export const confirmMeal = async (
+  id: string,
+  values: {
+    calories: number
+    proteins: number
+    carbs: number
+    fats: number
+    fibers: number
+    sodium: number
+  },
+): Promise<Meal> => {
+  const confirmedAt = new Date().toISOString()
+  return (await pb.collection('meals').update(id, {
+    ...values,
+    analysis_status: 'confirmed',
+    confirmed_at: confirmedAt,
+    patient_confirmed_values: { ...values, confirmed_at: confirmedAt },
+  })) as unknown as Meal
+}
+
+export function categorizeMealError(error: unknown): { title: string; description?: string } {
+  if (!(error instanceof ClientResponseError)) {
+    if (error instanceof Error && error.message.toLowerCase().includes('network')) {
+      return { title: 'Conexão perdida. Verifique sua internet e tente novamente.' }
+    }
+    return { title: 'Erro inesperado. Tente novamente.' }
+  }
+
+  if (error.isAbort) {
+    return { title: 'Operação cancelada.' }
+  }
+
+  if (error.status === 0) {
+    return { title: 'Conexão perdida. Verifique sua internet e tente novamente.' }
+  }
+
+  if (error.status === 401) {
+    return { title: 'Sessão expirada. Faça login novamente.' }
+  }
+
+  if (error.status === 400) {
+    const serverMsg = (error.response as Record<string, unknown>)?.error
+    return {
+      title:
+        typeof serverMsg === 'string'
+          ? serverMsg
+          : 'Dados inválidos. Verifique a imagem e tente novamente.',
+    }
+  }
+
+  if (error.status === 413) {
+    return { title: 'Imagem muito grande. O tamanho máximo é 5MB.' }
+  }
+
+  if (error.status >= 500) {
+    return { title: 'Erro no servidor. Tente novamente em instantes.' }
+  }
+
+  return { title: 'Erro ao enviar refeição. Tente novamente.' }
+}
 
 export type MealWithPhoto = Meal & { photoUrl: string }
 
