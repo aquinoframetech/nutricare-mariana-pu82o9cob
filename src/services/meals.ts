@@ -85,10 +85,12 @@ export const submitMealAnalysis = async (
 export const getMeal = async (id: string): Promise<Meal> =>
   (await pb.collection('meals').getOne(id)) as unknown as Meal
 
-export const retryMealAnalysis = async (
-  mealId: string,
-): Promise<{ meal_id: string; status: string }> =>
-  pb.send(`/backend/v1/meals/${mealId}/retry`, { method: 'POST' })
+export const retryMealAnalysis = async (mealId: string): Promise<{ success: boolean }> =>
+  pb.send('/backend/v1/meals/retry', {
+    method: 'POST',
+    body: JSON.stringify({ meal_id: mealId }),
+    headers: { 'Content-Type': 'application/json' },
+  })
 
 export const confirmMeal = async (
   id: string,
