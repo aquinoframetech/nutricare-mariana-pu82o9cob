@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-12T17:10:52.762Z",
+  "generatedAt": "2026-07-12T17:50:28.551Z",
   "collections": [
     {
       "name": "users",
@@ -391,6 +391,12 @@
         {
           "name": "analysis_version",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_estimated_values_history",
+          "type": "json",
           "required": false,
           "system": false
         }
@@ -1041,6 +1047,100 @@
       ],
       "indexes": [
         "CREATE UNIQUE INDEX idx_analysis_profiling_req ON analysis_profiling_logs (request_id)"
+      ]
+    },
+    {
+      "name": "meal_analysis_queue",
+      "type": "base",
+      "apiRules": {
+        "list": null,
+        "view": null,
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "request_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "meal_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "meals"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pending", "processing", "completed", "retry_scheduled", "failed"]
+        },
+        {
+          "name": "attempts",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "locked_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "locked_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "error_sanitized",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "started_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "finished_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "next_retry_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_meal_queue_meal ON meal_analysis_queue (meal_id)",
+        "CREATE INDEX idx_meal_queue_status ON meal_analysis_queue (status)",
+        "CREATE INDEX idx_meal_queue_retry ON meal_analysis_queue (next_retry_at)"
       ]
     }
   ]

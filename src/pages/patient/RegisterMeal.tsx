@@ -1,12 +1,20 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
-import { getMyPatientProfile } from '@/services/patients'
-import { createMeal, createMealPhoto, updateMeal } from '@/services/meals'
+import { submitMealAnalysis, retryMealAnalysis, updateMeal } from '@/services/meals'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Camera, Upload, CheckCircle2, ChevronRight, AlertCircle, Loader2 } from 'lucide-react'
+import {
+  Camera,
+  Upload,
+  CheckCircle2,
+  ChevronRight,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  Clock,
+} from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
@@ -25,6 +33,7 @@ export default function RegisterMeal() {
   const [fat, setFat] = useState(0)
   const [fibers, setFibers] = useState(0)
   const [sodium, setSodium] = useState(0)
+  const [isRetrying, setIsRetrying] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -35,7 +44,8 @@ export default function RegisterMeal() {
     (e) => {
       if (e.action === 'update' && e.record.id === mealId) {
         const meal = e.record as unknown as Meal
-        if (meal.ai_food_identified) {
+        const status = meal.analysis_status
+        if (status === 'awaiting_confirmation' && meal.ai_food_identified) {
           setAnalysisResult(meal)
           setCalories(meal.calories || 0)
           setProtein(meal.proteins || 0)
@@ -44,22 +54,13 @@ export default function RegisterMeal() {
           setFibers(meal.fibers || 0)
           setSodium(meal.sodium || 0)
           setStep(3)
+        } else if (status === 'failed') {
+          setStep(5)
         }
       }
     },
-    !!mealId && step === 2,
+    !!mealId && (step === 2 || step === 5),
   )
-
-  useEffect(() => {
-    if (step !== 2 || !mealId) return
-    const timer = setTimeout(() => {
-      setAnalysisResult((prev) => {
-        if (!prev) setStep(5)
-        return prev
-      })
-    }, 45000)
-    return () => clearTimeout(timer)
-  }, [step, mealId])
 
   const handleFileSelect = (selectedFile: File | undefined) => {
     if (!selectedFile) return
@@ -67,20 +68,27 @@ export default function RegisterMeal() {
     setPhotoPreview(URL.createObjectURL(selectedFile))
   }
 
-  const handleAnalyze = async () => {
+  const handleSubmit = async () => {
     if (!file || !user) return
     try {
-      const patient = await getMyPatientProfile()
-      const meal = await createMeal({
-        patient_id: patient.id,
-        name: description || 'Refeição',
-        timestamp: new Date().toISOString(),
-      })
-      setMealId(meal.id)
-      await createMealPhoto(meal.id, file)
+      const result = await submitMealAnalysis(file, description || 'Refeição')
+      setMealId(result.meal_id)
       setStep(2)
     } catch {
-      toast({ title: 'Erro ao registrar refeição. Verifique seu perfil.', variant: 'destructive' })
+      toast({ title: 'Erro ao enviar refeição. Tente novamente.', variant: 'destructive' })
+    }
+  }
+
+  const handleRetry = async () => {
+    if (!mealId) return
+    setIsRetrying(true)
+    try {
+      await retryMealAnalysis(mealId)
+      setStep(2)
+    } catch {
+      toast({ title: 'Erro ao reprocessar. Tente novamente.', variant: 'destructive' })
+    } finally {
+      setIsRetrying(false)
     }
   }
 
@@ -149,8 +157,8 @@ export default function RegisterMeal() {
             <Upload className="w-5 h-5 mr-2" /> Escolher da Galeria
           </Button>
           {file && (
-            <Button size="lg" className="w-full" onClick={handleAnalyze}>
-              Análise assistida por IA <ChevronRight className="w-5 h-5 ml-2" />
+            <Button size="lg" className="w-full" onClick={handleSubmit}>
+              Enviar para Análise <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
           )}
         </div>
@@ -158,16 +166,35 @@ export default function RegisterMeal() {
       {step === 2 && (
         <div className="animate-fade-in space-y-6 flex flex-col items-center pt-8">
           {photoPreview && (
-            <div className="relative w-48 h-48 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="relative w-40 h-40 rounded-2xl overflow-hidden shadow-subtle opacity-80">
               <img src={photoPreview} alt="Plate" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-primary/10" />
             </div>
           )}
-          <div className="text-center space-y-2">
-            <Loader2 className="w-8 h-8 mx-auto animate-spin text-primary" />
-            <h3 className="font-bold text-lg">Análise assistida por IA...</h3>
-            <p className="text-sm text-muted-foreground">Gerando estimativa nutricional</p>
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+              <Clock className="w-8 h-8 text-primary animate-pulse" />
+            </div>
+            <h3 className="font-bold text-lg">Análise em andamento</h3>
+            <p className="text-sm text-muted-foreground max-w-[280px]">
+              Sua refeição foi enviada com sucesso. A IA está processando a imagem em segundo plano.
+              Você será notificado quando os resultados estiverem prontos.
+            </p>
           </div>
+          <div className="w-full space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Processando imagem com IA...</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-primary h-full rounded-full animate-pulse"
+                style={{ width: '60%' }}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Você pode continuar usando o app. Retornaremos automaticamente quando pronto.
+          </p>
         </div>
       )}
       {step === 3 && analysisResult && (
@@ -270,24 +297,39 @@ export default function RegisterMeal() {
         </div>
       )}
       {step === 5 && (
-        <div className="animate-fade-in flex flex-col items-center justify-center py-20 text-center space-y-4">
-          <div className="w-20 h-20 rounded-full border-4 border-[#f59e0b] flex items-center justify-center mb-2">
-            <span className="text-[#f59e0b] text-5xl font-bold -mt-1">!</span>
+        <div className="animate-fade-in flex flex-col items-center justify-center py-16 text-center space-y-4">
+          <div className="w-20 h-20 rounded-full border-4 border-red-400 flex items-center justify-center mb-2">
+            <AlertCircle className="w-10 h-10 text-red-400" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground">Tempo esgotado</h2>
-          <p className="text-muted-foreground text-[15px] max-w-[260px] leading-snug">
-            A análise demorou mais que o esperado.
-            <br />
-            Tente novamente.
+          <h2 className="text-2xl font-bold text-foreground">Falha na análise</h2>
+          <p className="text-muted-foreground text-[15px] max-w-[280px] leading-snug">
+            Não foi possível processar a análise da sua refeição no momento. Você pode tentar
+            novamente.
           </p>
           <Button
+            onClick={handleRetry}
+            disabled={isRetrying}
+            className="mt-4 rounded-full bg-primary hover:bg-primary/90 text-white px-8 h-12 text-base font-medium"
+          >
+            {isRetrying ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Reenviando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-5 h-5 mr-2" /> Tentar Novamente
+              </>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => navigate('/patient')}
-            className="mt-4 rounded-full bg-[#10b981] hover:bg-[#059669] text-white px-8 h-12 text-base font-medium"
+            className="text-muted-foreground"
           >
             Voltar ao início
           </Button>
         </div>
-      )}{' '}
+      )}
     </div>
   )
 }

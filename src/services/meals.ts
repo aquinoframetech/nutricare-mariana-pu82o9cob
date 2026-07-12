@@ -66,6 +66,24 @@ export const analyzeMealDescription = (description: string) =>
     headers: { 'Content-Type': 'application/json' },
   })
 
+export const submitMealAnalysis = async (
+  file: File,
+  name: string,
+): Promise<{ meal_id: string; status: string }> => {
+  const formData = new FormData()
+  formData.append('image', file)
+  formData.append('name', name)
+  return await pb.send('/backend/v1/meals/analyze', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export const retryMealAnalysis = async (
+  mealId: string,
+): Promise<{ meal_id: string; status: string }> =>
+  pb.send(`/backend/v1/meals/${mealId}/retry`, { method: 'POST' })
+
 export type MealWithPhoto = Meal & { photoUrl: string }
 
 export const getMealsWithPhotos = async (patientId: string): Promise<MealWithPhoto[]> => {

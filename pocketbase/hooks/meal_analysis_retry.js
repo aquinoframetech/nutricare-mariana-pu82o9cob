@@ -1,28 +1,29 @@
-onRecordAfterCreateSuccess((e) => {
-  const photo = e.record
-  const mealId = photo.getString('meal_id')
-  const filename = photo.getString('image')
-  if (!mealId || !filename) return e.next()
+routerAdd(
+  'POST',
+  '/backend/v1/meals/{mealId}/retry',
+  (e) => {
+    const mealId = e.request.pathValue('mealId')
+    const userId = e.auth ? e.auth.id : ''
+    if (!userId) return e.unauthorizedError('auth required')
 
-  try {
-    const meal = $app.findRecordById('meals', mealId)
-    var currentStatus = meal.getString('analysis_status')
-
-    if (
-      currentStatus === 'awaiting_confirmation' ||
-      currentStatus === 'confirmed' ||
-      currentStatus === 'professionally_corrected'
-    ) {
-      return e.next()
+    var meal
+    try {
+      meal = $app.findRecordById('meals', mealId)
+    } catch (_) {
+      return e.notFoundError('meal not found')
     }
 
-    if (currentStatus !== 'processing') {
-      meal.set('analysis_status', 'processing')
-      $app.save(meal)
+    var patientId = meal.getString('patient_id')
+    try {
+      var patient = $app.findRecordById('patients', patientId)
+      if (patient.getString('user_id') !== userId) {
+        return e.forbiddenError('not authorized')
+      }
+    } catch (_) {
+      return e.forbiddenError('not authorized')
     }
 
     var requestId = $security.randomString(32)
-
     try {
       var existingJob = $app.findFirstRecordByFilter(
         'meal_analysis_queue',
@@ -48,13 +49,11 @@ onRecordAfterCreateSuccess((e) => {
       job.set('attempts', 0)
       $app.saveNoValidate(job)
     }
-  } catch (err) {
-    $app.logger().error('Failed to enqueue meal analysis', 'error', err.message, 'meal_id', mealId)
-    try {
-      var mealFail = $app.findRecordById('meals', mealId)
-      mealFail.set('analysis_status', 'failed')
-      $app.save(mealFail)
-    } catch (_) {}
-  }
-  return e.next()
-}, 'meal_photos')
+
+    meal.set('analysis_status', 'processing')
+    $app.save(meal)
+
+    return e.json(202, { meal_id: mealId, status: 'processing' })
+  },
+  $apis.requireAuth(),
+)

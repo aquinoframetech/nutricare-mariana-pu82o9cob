@@ -48,6 +48,10 @@ export interface Meal {
   calories_corrected: number
   location: string
   ai_notes: string
+  analysis_status?: string
+  ai_model?: string
+  analysis_version?: string
+  analyzed_at?: string
   created: string
   updated: string
   expand?: {
