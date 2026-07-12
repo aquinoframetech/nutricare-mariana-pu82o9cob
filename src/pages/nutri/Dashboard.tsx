@@ -49,18 +49,18 @@ export default function NutriDashboard() {
       const result = await testOpenAiConnection()
       setAiTestResult(result)
       if (result.success) {
-        toast.success('Conexão com IA estabelecida com sucesso!', {
+        toast.success('Conexão com OpenAI estabelecida com sucesso!', {
           description: `Tempo de resposta: ${result.response_time_ms}ms`,
         })
       } else {
-        toast.error('Falha na conexão com IA', {
+        toast.error('Falha na conexão com OpenAI', {
           description: result.message,
         })
       }
     } catch (err: any) {
       const msg = err?.response?.message || err?.message || 'Erro ao testar conexão'
       setAiTestResult({ success: false, message: msg, response_time_ms: 0 })
-      toast.error('Falha na conexão com IA', { description: msg })
+      toast.error('Falha na conexão com OpenAI', { description: msg })
     } finally {
       setTestingAi(false)
     }
@@ -81,12 +81,12 @@ export default function NutriDashboard() {
       </div>
       <Card className="border-dashed">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Diagnóstico de IA</CardTitle>
+          <CardTitle className="text-sm font-medium">Diagnóstico de Conexão OpenAI</CardTitle>
           <Zap className="h-4 w-4 text-amber-500" />
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Verifique a conectividade do backend com o serviço de IA.
+            Verifique a conectividade do backend com o serviço OpenAI.
           </p>
           <Button
             onClick={handleTestConnection}
@@ -102,7 +102,7 @@ export default function NutriDashboard() {
             ) : (
               <>
                 <Zap className="w-4 h-4 mr-2" />
-                Testar Conexão IA
+                Testar Conexão com OpenAI
               </>
             )}
           </Button>

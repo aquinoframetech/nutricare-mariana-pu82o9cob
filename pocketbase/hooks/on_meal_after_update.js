@@ -1,156 +1,99 @@
 onRecordAfterUpdateSuccess((e) => {
   const meal = e.record
-  const patientId = meal.getString('patient_id')
 
-  var caloriesChanged = meal.getInt('calories') !== meal.original().getInt('calories')
-  var proteinsChanged = meal.getInt('proteins') !== meal.original().getInt('proteins')
-  var carbsChanged = meal.getInt('carbs') !== meal.original().getInt('carbs')
-  var fatsChanged = meal.getInt('fats') !== meal.original().getInt('fats')
+  var oldCalories = 0
+  var newCalories = 0
+  var oldProteins = 0
+  var newProteins = 0
+  var oldCarbs = 0
+  var newCarbs = 0
+  var oldFats = 0
+  var newFats = 0
 
-  if (!caloriesChanged && !proteinsChanged && !carbsChanged && !fatsChanged) {
+  try {
+    oldCalories = meal.original().getInt('calories')
+  } catch (_) {}
+  try {
+    newCalories = meal.getInt('calories')
+  } catch (_) {}
+  try {
+    oldProteins = meal.original().getInt('proteins')
+  } catch (_) {}
+  try {
+    newProteins = meal.getInt('proteins')
+  } catch (_) {}
+  try {
+    oldCarbs = meal.original().getInt('carbs')
+  } catch (_) {}
+  try {
+    newCarbs = meal.getInt('carbs')
+  } catch (_) {}
+  try {
+    oldFats = meal.original().getInt('fats')
+  } catch (_) {}
+  try {
+    newFats = meal.getInt('fats')
+  } catch (_) {}
+
+  var deltaCalories = newCalories - oldCalories
+  var deltaProteins = newProteins - oldProteins
+  var deltaCarbs = newCarbs - oldCarbs
+  var deltaFats = newFats - oldFats
+
+  if (deltaCalories === 0 && deltaProteins === 0 && deltaCarbs === 0 && deltaFats === 0) {
     return e.next()
   }
 
-  var timestamp = meal.getString('timestamp')
-  if (!timestamp) return e.next()
+  var patientId = meal.getString('patient_id')
+  if (!patientId) return e.next()
 
-  var mealDate = new Date(timestamp)
-  var startOfDay = new Date(
-    mealDate.getFullYear(),
-    mealDate.getMonth(),
-    mealDate.getDate(),
-  ).toISOString()
-  var endOfDay = new Date(
-    mealDate.getFullYear(),
-    mealDate.getMonth(),
-    mealDate.getDate(),
-    23,
-    59,
-    59,
-    999,
-  ).toISOString()
-
-  var dailyMeals = []
-  try {
-    dailyMeals = $app.findRecordsByFilter(
-      'meals',
-      'patient_id = {:pid} && timestamp >= {:start} && timestamp <= {:end}',
-      'timestamp',
-      0,
-      0,
-      (pid = patientId),
-      (start = startOfDay),
-      (end = endOfDay),
-    )
-  } catch (_) {}
-
-  var totalCalories = 0
-  var totalProteins = 0
-  var totalCarbs = 0
-  var totalFats = 0
-
-  for (var i = 0; i < dailyMeals.length; i++) {
-    totalCalories += dailyMeals[i].getInt('calories')
-    totalProteins += dailyMeals[i].getInt('proteins')
-    totalCarbs += dailyMeals[i].getInt('carbs')
-    totalFats += dailyMeals[i].getInt('fats')
-  }
+  var now = new Date()
+  var startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
 
   try {
     var calorieLog
     try {
       calorieLog = $app.findFirstRecordByFilter(
         'calorie_logs',
-        'patient_id = {:pid} && date >= {:start} && date <= {:end}',
+        'patient_id = {:pid} && date >= {:since}',
         (pid = patientId),
-        (start = startOfDay),
-        (end = endOfDay),
+        (since = startOfDay),
       )
-      calorieLog.set('calories', totalCalories)
+      calorieLog.set('calories', calorieLog.getInt('calories') + deltaCalories)
       $app.save(calorieLog)
     } catch (_) {
       var col1 = $app.findCollectionByNameOrId('calorie_logs')
       calorieLog = new Record(col1)
       calorieLog.set('patient_id', patientId)
-      calorieLog.set('date', startOfDay)
-      calorieLog.set('calories', totalCalories)
+      calorieLog.set('date', new Date().toISOString())
+      calorieLog.set('calories', deltaCalories)
       $app.save(calorieLog)
     }
-  } catch (err) {
-    $app.logger().error('Error updating calorie log on meal update', 'error', err.message)
-  }
 
-  try {
     var macroLog
     try {
       macroLog = $app.findFirstRecordByFilter(
         'macro_logs',
-        'patient_id = {:pid} && date >= {:start} && date <= {:end}',
+        'patient_id = {:pid} && date >= {:since}',
         (pid = patientId),
-        (start = startOfDay),
-        (end = endOfDay),
+        (since = startOfDay),
       )
-      macroLog.set('proteins', totalProteins)
-      macroLog.set('carbs', totalCarbs)
-      macroLog.set('fats', totalFats)
+      macroLog.set('proteins', macroLog.getInt('proteins') + deltaProteins)
+      macroLog.set('carbs', macroLog.getInt('carbs') + deltaCarbs)
+      macroLog.set('fats', macroLog.getInt('fats') + deltaFats)
       $app.save(macroLog)
     } catch (_) {
       var col2 = $app.findCollectionByNameOrId('macro_logs')
       macroLog = new Record(col2)
       macroLog.set('patient_id', patientId)
-      macroLog.set('date', startOfDay)
-      macroLog.set('proteins', totalProteins)
-      macroLog.set('carbs', totalCarbs)
-      macroLog.set('fats', totalFats)
+      macroLog.set('date', new Date().toISOString())
+      macroLog.set('proteins', deltaProteins)
+      macroLog.set('carbs', deltaCarbs)
+      macroLog.set('fats', deltaFats)
       $app.save(macroLog)
     }
   } catch (err) {
-    $app.logger().error('Error updating macro log on meal update', 'error', err.message)
-  }
-
-  try {
-    var patient = $app.findRecordById('patients', patientId)
-    var calorieGoal = patient.getInt('calorie_goal')
-
-    if (calorieGoal > 0 && totalCalories > calorieGoal) {
-      var alertCol = $app.findCollectionByNameOrId('alerts')
-      var alert = new Record(alertCol)
-      alert.set('patient_id', patientId)
-      alert.set('type', 'critical')
-      alert.set(
-        'message',
-        'Calorias diárias ultrapassaram a meta: ' +
-          totalCalories +
-          ' kcal (meta: ' +
-          calorieGoal +
-          ' kcal).',
-      )
-      alert.set('is_read', false)
-      $app.save(alert)
-    }
-
-    var weight = patient.getInt('weight')
-    if (weight > 0 && totalProteins > 0) {
-      var proteinThreshold = weight * 0.8 * 0.5
-      if (totalProteins < proteinThreshold) {
-        var alertCol2 = $app.findCollectionByNameOrId('alerts')
-        var protAlert = new Record(alertCol2)
-        protAlert.set('patient_id', patientId)
-        protAlert.set('type', 'warning')
-        protAlert.set(
-          'message',
-          'Ingestão proteica diária baixa: ' +
-            totalProteins +
-            'g (mínimo estimado: ' +
-            Math.round(proteinThreshold) +
-            'g).',
-        )
-        protAlert.set('is_read', false)
-        $app.save(protAlert)
-      }
-    }
-  } catch (err) {
-    $app.logger().error('Error checking alerts after meal update', 'error', err.message)
+    $app.logger().error('Error updating logs on meal update', 'error', err.message)
   }
 
   return e.next()
