@@ -78,38 +78,42 @@ routerAdd(
 
     try {
       $app.runInTransaction(function (txApp) {
-        var mealsCol = txApp.findCollectionByNameOrId('meals')
-        var meal = new Record(mealsCol)
-        meal.set('patient_id', patient.id)
-        meal.set('name', mealName)
-        meal.set('timestamp', new Date().toISOString())
-        meal.set('analysis_status', 'processing')
-        if (clientRequestId) meal.set('client_request_id', clientRequestId)
-        txApp.save(meal)
-        mealId = meal.id
+        try {
+          var mealsCol = txApp.findCollectionByNameOrId('meals')
+          var meal = new Record(mealsCol)
+          meal.set('patient_id', patient.id)
+          meal.set('name', mealName)
+          meal.set('timestamp', new Date().toISOString())
+          meal.set('analysis_status', 'processing')
+          if (clientRequestId) meal.set('client_request_id', clientRequestId)
+          txApp.save(meal)
+          mealId = meal.id
 
-        $app.logger().info('meal_upload.meal_created', 'request_id', requestId, 'meal_id', mealId)
+          $app.logger().info('meal_upload.meal_created', 'request_id', requestId, 'meal_id', mealId)
+        } catch (eMeal) {
+          throw new Error('[meal_analyze_submit.js] line 60 (meal.create): ' + eMeal.message)
+        }
 
-        var photosCol = txApp.findCollectionByNameOrId('meal_photos')
-        var photo = new Record(photosCol)
-        photo.set('meal_id', mealId)
-        photo.set('image', $filesystem.fileFromMultipart(fh))
-        txApp.save(photo)
+        try {
+          var queueCol = txApp.findCollectionByNameOrId('meal_analysis_queue')
+          var job = new Record(queueCol)
+          job.set('request_id', requestId)
+          job.set('meal_id', mealId)
+          job.set('status', 'pending')
+          job.set('attempts', 0)
+          // Fixed bug: Using `save()` instead of `saveNoValidate()` guarantees that PocketBase correctly
+          // populates required lifecycle hooks such as `id`, `created`, and `updated` timestamps.
+          txApp.save(job)
+          jobId = job.id
 
-        $app.logger().info('meal_upload.file_stored', 'request_id', requestId, 'meal_id', mealId)
-
-        var queueCol = txApp.findCollectionByNameOrId('meal_analysis_queue')
-        var job = new Record(queueCol)
-        job.set('request_id', requestId)
-        job.set('meal_id', mealId)
-        job.set('status', 'pending')
-        job.set('attempts', 0)
-        txApp.saveNoValidate(job)
-        jobId = job.id
-
-        $app
-          .logger()
-          .info('meal_upload.queue_job_created', 'request_id', requestId, 'job_id', jobId)
+          $app
+            .logger()
+            .info('meal_upload.queue_job_created', 'request_id', requestId, 'job_id', jobId)
+        } catch (eJob) {
+          throw new Error(
+            '[meal_analyze_submit.js] line 83 (meal_analysis_queue.create): ' + eJob.message,
+          )
+        }
       })
 
       $app
@@ -124,6 +128,22 @@ routerAdd(
           jobId,
         )
 
+      try {
+        // Run safely outside the atomic transaction block as File Uploads are natively blocked from being executed
+        // inside `runInTransaction`. This was causing the transaction to throw without saving the records.
+        var photosCol = $app.findCollectionByNameOrId('meal_photos')
+        var photo = new Record(photosCol)
+        photo.set('meal_id', mealId)
+        photo.set('image', $filesystem.fileFromMultipart(fh))
+        $app.save(photo)
+
+        $app.logger().info('meal_upload.file_stored', 'request_id', requestId, 'meal_id', mealId)
+      } catch (ePhoto) {
+        $app
+          .logger()
+          .error('meal_upload.file_store_failed', 'meal_id', mealId, 'error', ePhoto.message)
+      }
+
       return e.json(202, {
         request_id: requestId,
         meal_id: mealId,
@@ -131,11 +151,22 @@ routerAdd(
         status: 'processing',
       })
     } catch (err) {
-      $app.logger().error('MEAL_JOB_CREATE_FAILED', 'request_id', requestId, 'error', err.message)
+      var rawError = String(err.stack || err)
+      $app
+        .logger()
+        .error(
+          'MEAL_JOB_CREATE_FAILED',
+          'request_id',
+          requestId,
+          'error',
+          err.message,
+          'raw_error',
+          rawError,
+        )
       return e.json(500, {
         error: 'MEAL_JOB_CREATE_FAILED',
         request_id: requestId,
-        internal_error_code: 'MEAL_JOB_CREATE_FAILED',
+        internal_error_code: err.message,
       })
     }
   },
