@@ -1,11 +1,16 @@
 import pb from '@/lib/pocketbase/client'
 
+export type AgentChatMode =
+  | 'general_nutrition_estimate_summarized'
+  | 'general_nutrition_estimate_detailed'
+  | 'clinical_record_analysis'
+
 export interface AgentChatResponse {
   conversation_id: string
   content: string
   citations?: Array<{ n: number; excerpt: string; source_id: string; distance: number }>
   message_id: string
-  mode?: 'general_nutrition_estimate' | 'clinical_record_analysis'
+  mode?: AgentChatMode
 }
 
 export const chatWithAgent = (
