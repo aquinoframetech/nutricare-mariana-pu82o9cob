@@ -193,19 +193,25 @@ cronAdd('meal_worker', '* * * * *', () => {
 
       var tB64 = Date.now()
       var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-      var base64Parts = []
+      var base64 = ''
       var bytesLen = imageSizeBytes
       var b64idx = 0
       while (b64idx < bytesLen) {
-        var b0 = body[b64idx++]
-        var b1 = b64idx < bytesLen ? body[b64idx++] : -1
-        var b2 = b64idx < bytesLen ? body[b64idx++] : -1
-        base64Parts.push(lookup[b0 >> 2])
-        base64Parts.push(lookup[((b0 & 3) << 4) | (b1 >= 0 ? b1 >> 4 : 0)])
-        base64Parts.push(b1 >= 0 ? lookup[((b1 & 15) << 2) | (b2 >= 0 ? b2 >> 6 : 0)] : '=')
-        base64Parts.push(b2 >= 0 ? lookup[b2 & 63] : '=')
+        var chunk = ''
+        var end = b64idx + 12000
+        if (end > bytesLen) end = bytesLen
+        while (b64idx < end) {
+          var b0 = body[b64idx++]
+          var b1 = b64idx < bytesLen ? body[b64idx++] : -1
+          var b2 = b64idx < bytesLen ? body[b64idx++] : -1
+          chunk +=
+            lookup[b0 >> 2] +
+            lookup[((b0 & 3) << 4) | (b1 >= 0 ? b1 >> 4 : 0)] +
+            (b1 >= 0 ? lookup[((b1 & 15) << 2) | (b2 >= 0 ? b2 >> 6 : 0)] : '=') +
+            (b2 >= 0 ? lookup[b2 & 63] : '=')
+        }
+        base64 += chunk
       }
-      var base64 = base64Parts.join('')
 
       var durB64 = Date.now() - tB64
       lastCheckpoint = 'base64_encode_complete'
@@ -484,7 +490,7 @@ cronAdd('meal_worker', '* * * * *', () => {
     if (!timeoutSource || timeoutSource === 'unknown')
       timeoutSource = isPermanent ? 'backend' : 'openai'
 
-    var maxAttempts = 5
+    var maxAttempts = 2
     var shouldFail = isPermanent || attempts >= maxAttempts
 
     if (shouldFail) {
@@ -498,7 +504,7 @@ cronAdd('meal_worker', '* * * * *', () => {
         $app.save(mealFail)
       } catch (_) {}
     } else {
-      var backoffSec = Math.pow(2, attempts) * 30
+      var backoffSec = 5 // Fast retry for interactive user wait
       var nextRetry = new Date(Date.now() + backoffSec * 1000).toISOString()
       job.set('status', 'retry_scheduled')
       job.set('next_retry_at', nextRetry)
