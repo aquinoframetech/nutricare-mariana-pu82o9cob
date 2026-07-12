@@ -1,3 +1,4 @@
+// @deps base64-js@1.5.1
 cronAdd('meal_worker', '* * * * *', () => {
   var workerId = $security.randomString(16)
   var now = new Date()
@@ -166,18 +167,13 @@ cronAdd('meal_worker', '* * * * *', () => {
         bytes = new Uint8Array(body)
       } else if (body && body.buffer instanceof ArrayBuffer) {
         bytes = new Uint8Array(body.buffer)
-      } else if (typeof body === 'string') {
-        bytes = new Uint8Array(body.length)
-        for (var i = 0; i < body.length; i++) {
-          bytes[i] = body.charCodeAt(i) & 0xff
-        }
       } else if (Array.isArray(body) || (body && typeof body.length === 'number')) {
         bytes = new Uint8Array(body.length)
         for (var j = 0; j < body.length; j++) {
           bytes[j] = body[j] & 0xff
         }
       } else {
-        throw new Error('Unsupported body type: ' + typeof body)
+        throw new Error('Unsupported body type (possible string corruption): ' + typeof body)
       }
 
       imageSizeBytes = bytes.length
@@ -211,28 +207,8 @@ cronAdd('meal_worker', '* * * * *', () => {
         )
 
       var tB64 = Date.now()
-      var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-      var bytesLen = imageSizeBytes
-      var b64idx = 0
-      var base64Parts = []
-
-      while (b64idx < bytesLen) {
-        var chunk = ''
-        var end = b64idx + 12000
-        if (end > bytesLen) end = bytesLen
-        while (b64idx < end) {
-          var b0 = bytes[b64idx++]
-          var b1 = b64idx < bytesLen ? bytes[b64idx++] : -1
-          var b2 = b64idx < bytesLen ? bytes[b64idx++] : -1
-          chunk +=
-            lookup[b0 >> 2] +
-            lookup[((b0 & 3) << 4) | (b1 >= 0 ? b1 >> 4 : 0)] +
-            (b1 >= 0 ? lookup[((b1 & 15) << 2) | (b2 >= 0 ? b2 >> 6 : 0)] : '=') +
-            (b2 >= 0 ? lookup[b2 & 63] : '=')
-        }
-        base64Parts.push(chunk)
-      }
-      var base64 = base64Parts.join('')
+      var base64js = require('base64-js')
+      var base64 = base64js.fromByteArray(bytes)
 
       var durB64 = Date.now() - tB64
       lastCheckpoint = 'base64_encode_complete'

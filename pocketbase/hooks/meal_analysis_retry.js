@@ -49,10 +49,10 @@ routerAdd(
       $app.saveNoValidate(job)
     }
 
-    meal.set('analysis_status', 'processing')
+    meal.set('analysis_status', 'pending')
     $app.save(meal)
 
-    return e.json(202, { meal_id: mealId, status: 'processing' })
+    return e.json(202, { meal_id: mealId, status: 'pending' })
   },
   $apis.requireAuth(),
 )
