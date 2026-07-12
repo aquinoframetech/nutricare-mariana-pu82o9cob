@@ -31,8 +31,11 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Meal } from '@/lib/types'
 
+import { useLocation } from 'react-router-dom'
+import { getMealPhotos, getMealPhotoUrl } from '@/services/meals'
+
 const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 15 * 1024 * 1024 // Increased size to allow camera photos before compression
 
 function validateFile(file: File): string | null {
   if (!file.type.startsWith('image/')) {
@@ -42,12 +45,64 @@ function validateFile(file: File): string | null {
     return 'Formato não suportado. Use JPG, PNG ou WebP.'
   }
   if (file.size > MAX_FILE_SIZE) {
-    return 'Imagem muito grande. O tamanho máximo é 5MB.'
+    return 'Imagem muito grande. O tamanho máximo é 15MB.'
   }
   if (file.size < 1024) {
     return 'Imagem muito pequena. O arquivo pode estar corrompido.'
   }
   return null
+}
+
+function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = (event) => {
+      const img = new Image()
+      img.src = event.target?.result as string
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width)
+            width = maxWidth
+          } else {
+            width = Math.round((width * maxWidth) / height)
+            height = maxWidth
+          }
+        }
+
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Canvas context is null'))
+          return
+        }
+        ctx.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const extension = file.name.split('.').pop()?.toLowerCase()
+              const isPng = extension === 'png'
+              const mimeType = isPng ? 'image/png' : 'image/jpeg'
+              resolve(new File([blob], file.name, { type: mimeType }))
+            } else {
+              reject(new Error('Canvas to Blob failed'))
+            }
+          },
+          'image/jpeg',
+          quality,
+        )
+      }
+      img.onerror = (error) => reject(error)
+    }
+    reader.onerror = (error) => reject(error)
+  })
 }
 
 export default function RegisterMeal() {
@@ -72,10 +127,48 @@ export default function RegisterMeal() {
     description?: string
     icon: 'network' | 'auth' | 'file' | 'server'
   } | null>(null)
+  const [isCompressing, setIsCompressing] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (location.state?.mealId && !mealId) {
+      const mId = location.state.mealId
+      setMealId(mId)
+
+      getMeal(mId)
+        .then(async (meal) => {
+          try {
+            const photos = await getMealPhotos(mId)
+            if (photos.length > 0) {
+              setPhotoPreview(getMealPhotoUrl(photos[0], photos[0].image))
+            }
+          } catch {
+            /* intentionally ignored */
+          }
+
+          if (meal.analysis_status === 'awaiting_confirmation') {
+            applyMealResult(meal)
+            setStep(3)
+          } else if (meal.analysis_status === 'failed') {
+            setStep(5)
+          } else if (meal.analysis_status === 'pending' || meal.analysis_status === 'processing') {
+            setStep(2)
+          } else if (
+            meal.analysis_status === 'confirmed' ||
+            meal.analysis_status === 'professionally_corrected'
+          ) {
+            navigate('/patient/history')
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch initial meal:', err)
+        })
+    }
+  }, [location.state, mealId, navigate])
 
   useRealtime(
     'meals',
@@ -97,14 +190,23 @@ export default function RegisterMeal() {
         }
       }
     },
-    !!mealId && (step === 2 || step === 5),
+    !!mealId && (step === 2 || step === 5 || step === 6),
   )
+
+  useEffect(() => {
+    if (step === 2) {
+      const timer = setTimeout(() => {
+        setStep(6)
+      }, 40000)
+      return () => clearTimeout(timer)
+    }
+  }, [step])
 
   const clearError = useCallback(() => {
     if (errorMessage) setErrorMessage(null)
   }, [errorMessage])
 
-  const handleFileSelect = (selectedFile: File | undefined) => {
+  const handleFileSelect = async (selectedFile: File | undefined) => {
     if (!selectedFile) return
     clearError()
     const validationError = validateFile(selectedFile)
@@ -112,9 +214,21 @@ export default function RegisterMeal() {
       setErrorMessage({ title: validationError, icon: 'file' })
       return
     }
-    setFile(selectedFile)
-    setPhotoPreview(URL.createObjectURL(selectedFile))
-    setClientRequestId(crypto.randomUUID())
+
+    setIsCompressing(true)
+    try {
+      const compressedFile = await compressImage(selectedFile)
+      setFile(compressedFile)
+      setPhotoPreview(URL.createObjectURL(compressedFile))
+      setClientRequestId(crypto.randomUUID())
+    } catch (error) {
+      console.error('Compression error:', error)
+      setFile(selectedFile)
+      setPhotoPreview(URL.createObjectURL(selectedFile))
+      setClientRequestId(crypto.randomUUID())
+    } finally {
+      setIsCompressing(false)
+    }
   }
 
   const applyMealResult = (meal: Meal) => {
@@ -297,11 +411,12 @@ export default function RegisterMeal() {
               size="lg"
               className="w-full"
               onClick={handleSubmit}
-              disabled={isSubmitting || !!errorMessage}
+              disabled={isSubmitting || isCompressing || !!errorMessage}
             >
-              {isSubmitting ? (
+              {isSubmitting || isCompressing ? (
                 <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Enviando...
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />{' '}
+                  {isCompressing ? 'Processando...' : 'Enviando...'}
                 </>
               ) : (
                 <>
@@ -323,10 +438,10 @@ export default function RegisterMeal() {
             <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
               <Clock className="w-8 h-8 text-primary animate-pulse" />
             </div>
-            <h3 className="font-bold text-lg">Análise em andamento</h3>
+            <h3 className="font-bold text-lg">Processando análise...</h3>
             <p className="text-sm text-muted-foreground max-w-[280px]">
-              Sua refeição foi enviada com sucesso. A IA está processando a imagem em segundo plano.
-              Você será notificado quando os resultados estiverem prontos.
+              Sua refeição foi enviada com sucesso. A IA está analisando a imagem. Você pode
+              aguardar ou acessar o histórico depois.
             </p>
           </div>
           <div className="w-full space-y-2">
@@ -341,9 +456,15 @@ export default function RegisterMeal() {
               />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Você pode continuar usando o app. Retornaremos automaticamente quando pronto.
-          </p>
+          <div className="pt-4 flex w-full">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/patient/history')}
+              className="text-muted-foreground w-full rounded-full"
+            >
+              Ver no Histórico
+            </Button>
+          </div>
         </div>
       )}
       {step === 3 && analysisResult && (
@@ -481,7 +602,42 @@ export default function RegisterMeal() {
           <Button
             variant="ghost"
             onClick={() => navigate('/patient')}
-            className="text-muted-foreground"
+            className="text-muted-foreground w-full rounded-full"
+          >
+            Voltar ao início
+          </Button>
+        </div>
+      )}
+      {step === 6 && (
+        <div className="animate-fade-in flex flex-col items-center justify-center py-16 text-center space-y-4">
+          <div className="w-20 h-20 rounded-full border-4 border-amber-400 flex items-center justify-center mb-2">
+            <span className="text-amber-500 text-4xl font-bold">!</span>
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Tempo esgotado</h2>
+          <p className="text-muted-foreground text-[15px] max-w-[280px] leading-snug">
+            A análise demorou mais que o esperado.
+            <br />
+            Tente novamente.
+          </p>
+          <Button
+            onClick={handleRetry}
+            disabled={isRetrying}
+            className="mt-4 rounded-full bg-primary hover:bg-primary/90 text-white px-8 h-12 text-base font-medium w-full"
+          >
+            {isRetrying ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Reenviando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-5 h-5 mr-2" /> Tentar Novamente
+              </>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/patient')}
+            className="text-muted-foreground w-full rounded-full"
           >
             Voltar ao início
           </Button>

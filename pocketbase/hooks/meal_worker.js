@@ -96,6 +96,18 @@ Chaves obrigatórias (todas numéricas devem ser number, e textos string):
         record.set('status', 'completed')
         record.set('finished_at', new Date().toISOString())
         $app.save(record)
+
+        try {
+          const logCol = $app.findCollectionByNameOrId('analysis_profiling_logs')
+          const profLog = new Record(logCol)
+          profLog.set(
+            'request_id',
+            record.getString('request_id') || 'REQ_' + $security.randomString(8),
+          )
+          profLog.set('meal_id', mealId)
+          profLog.set('openai_status', 200)
+          $app.save(profLog)
+        } catch (_) {}
       } catch (err) {
         record.set('status', 'failed')
         record.set('error_sanitized', err.message)
@@ -107,6 +119,24 @@ Chaves obrigatórias (todas numéricas devem ser number, e textos string):
           $app.save(meal)
         } catch (mealErr) {
           $app.logger().error('meal_worker update meal error', 'msg', mealErr.message)
+        }
+
+        try {
+          const logCol = $app.findCollectionByNameOrId('analysis_profiling_logs')
+          const profLog = new Record(logCol)
+          profLog.set(
+            'request_id',
+            record.getString('request_id') || 'REQ_' + $security.randomString(8),
+          )
+          profLog.set('meal_id', record.getString('meal_id'))
+          profLog.set(
+            'timeout_source',
+            err.message.toLowerCase().includes('timeout') ? 'openai' : 'unknown',
+          )
+          profLog.set('openai_status', err.status || 500)
+          $app.save(profLog)
+        } catch (logErr) {
+          $app.logger().error('meal_worker profiling log error', 'msg', logErr.message)
         }
       }
     }
