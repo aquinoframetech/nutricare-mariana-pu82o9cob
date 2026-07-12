@@ -6,11 +6,19 @@ onRecordUpdateRequest((e) => {
     'proteins',
     'carbs',
     'fats',
+    'fibers',
+    'sodium',
     'ai_description',
     'calories_corrected',
     'location',
     'ai_food_identified',
     'ai_confidence',
+    'ai_notes',
+    'analysis_status',
+    'patient_confirmed_values',
+    'nutritionist_corrected_values',
+    'ai_model',
+    'analysis_version',
   ]
 
   var previousValues = {}
