@@ -1,4 +1,4 @@
-cronAdd('meal_queue_cleanup', '0 0 3 * * *', () => {
+cronAdd('meal_queue_cleanup', '0 3 * * *', () => {
   var cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   try {
     $app

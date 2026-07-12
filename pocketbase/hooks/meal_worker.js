@@ -1,4 +1,4 @@
-cronAdd('meal_worker', '*/30 * * * * *', () => {
+cronAdd('meal_worker', '* * * * *', () => {
   var workerId = $security.randomString(16)
   var now = new Date()
   var nowIso = now.toISOString()
@@ -125,7 +125,7 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
     } catch (_) {}
 
     var tImgProc = Date.now()
-    var baseUrl = $secrets.get('PB_INSTANCE_URL') || ''
+    var baseUrl = $secrets.get('PB_INSTANCE_URL') || 'http://127.0.0.1:8090'
     var token = $secrets.get('PB_SUPERUSER_TOKEN') || ''
     var imageUrl = baseUrl + '/api/files/meal_photos/' + photo.id + '/' + filename
     var imageDataUrl = ''
@@ -144,19 +144,21 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
         var base64 = ''
         var i = 0
         while (i < body.length) {
-          var a = body.charCodeAt(i++)
-          var b = i < body.length ? body.charCodeAt(i++) : -1
-          var c = i < body.length ? body.charCodeAt(i++) : -1
+          var a = body[i++]
+          var b = i < body.length ? body[i++] : -1
+          var c = i < body.length ? body[i++] : -1
           base64 += chars[a >> 2]
           base64 += chars[((a & 3) << 4) | (b >= 0 ? b >> 4 : 0)]
           base64 += b >= 0 ? chars[((b & 15) << 2) | (c >= 0 ? c >> 6 : 0)] : '='
           base64 += c >= 0 ? chars[c & 63] : '='
         }
         imageDataUrl = 'data:image/jpeg;base64,' + base64
+      } else {
+        throw new Error('Image fetch failed with status ' + imgRes.statusCode)
       }
     } catch (fetchErr) {
       isPermanent = true
-      errorSanitized = 'Failed to fetch image'
+      errorSanitized = 'Failed to fetch image: ' + fetchErr.message
       timeoutSource = 'backend'
       throw fetchErr
     }
@@ -279,7 +281,7 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
     meal.set('sodium', parsed.sodio_estimado || 0)
     meal.set('ai_confidence', parsed.confianca_geral || 0.5)
     meal.set('ai_notes', parsed.observacoes || '')
-    meal.set('ai_raw_response', content)
+    meal.set('ai_raw_response', parsed)
     meal.set('ai_estimated_values', parsed)
     meal.set('analysis_status', 'awaiting_confirmation')
     meal.set('ai_model', 'fast')
@@ -352,7 +354,9 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
       $app.saveNoValidate(profLog)
     } catch (_) {}
   } catch (err) {
-    if (!errorSanitized) errorSanitized = 'Processing error'
+    var rawErr = String(err.message || err)
+    $app.logger().error('meal_worker_error', 'meal_id', mealId, 'error', rawErr)
+    if (!errorSanitized) errorSanitized = rawErr
     if (!timeoutSource || timeoutSource === 'unknown')
       timeoutSource = isPermanent ? 'backend' : 'openai'
 
