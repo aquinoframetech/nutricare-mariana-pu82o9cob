@@ -192,26 +192,56 @@ cronAdd('meal_worker', '* * * * *', () => {
         )
 
       var tB64 = Date.now()
+      // ------------------------------------------------------------------
+      // OFFICIAL vs CURRENT IMPLEMENTATION ANALYSIS
+      // ------------------------------------------------------------------
+      // DIVERGENCE: In the PocketBase JSVM (goja), $http.send() returns
+      // res.body as a binary string (each byte mapped to one Unicode code
+      // point 0-255). The previous code used body[b64idx++] which returns
+      // a single-character STRING, not a number. The >> operator coerces
+      // non-numeric strings to NaN, and NaN >> 2 === 0, producing base64
+      // output of all 'A' characters (lookup[0]). The AI Gateway received
+      // a blank/corrupted image, causing analysis failures.
+      //
+      // FIX: Use String.prototype.charCodeAt() to extract the numeric byte
+      // value (0-255), preserving binary integrity.
+      //
+      // MEMORY: String concatenation with += is O(n^2) for large strings.
+      // Using array.push() + join() reduces to O(n), preventing JSVM
+      // memory exhaustion on 5 MB images (producing 6.7 MB base64).
+      //
+      // STANDARD: The Skip AI Gateway follows the OpenAI Chat Completions
+      // API format. Vision tasks require image_url with either a publicly
+      // accessible URL or a valid data URI (base64). Since PocketBase file
+      // URLs require authentication and are not publicly accessible from
+      // the AI Gateway, base64 data URI is the correct approach. The
+      // binary-to-base64 conversion must use charCodeAt() to preserve
+      // byte-level integrity in goja binary strings.
+      // ------------------------------------------------------------------
       var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-      var base64 = ''
       var bytesLen = imageSizeBytes
       var b64idx = 0
+      var base64Parts = []
+      var bodyIsString = typeof body === 'string'
       while (b64idx < bytesLen) {
         var chunk = ''
         var end = b64idx + 12000
         if (end > bytesLen) end = bytesLen
         while (b64idx < end) {
-          var b0 = body[b64idx++]
-          var b1 = b64idx < bytesLen ? body[b64idx++] : -1
-          var b2 = b64idx < bytesLen ? body[b64idx++] : -1
+          var b0 = bodyIsString ? body.charCodeAt(b64idx++) : body[b64idx++]
+          var b1 =
+            b64idx < bytesLen ? (bodyIsString ? body.charCodeAt(b64idx++) : body[b64idx++]) : -1
+          var b2 =
+            b64idx < bytesLen ? (bodyIsString ? body.charCodeAt(b64idx++) : body[b64idx++]) : -1
           chunk +=
             lookup[b0 >> 2] +
             lookup[((b0 & 3) << 4) | (b1 >= 0 ? b1 >> 4 : 0)] +
             (b1 >= 0 ? lookup[((b1 & 15) << 2) | (b2 >= 0 ? b2 >> 6 : 0)] : '=') +
             (b2 >= 0 ? lookup[b2 & 63] : '=')
         }
-        base64 += chunk
+        base64Parts.push(chunk)
       }
+      var base64 = base64Parts.join('')
 
       var durB64 = Date.now() - tB64
       lastCheckpoint = 'base64_encode_complete'
@@ -228,7 +258,9 @@ cronAdd('meal_worker', '* * * * *', () => {
           durB64,
         )
 
-      imageDataUrl = 'data:image/jpeg;base64,' + base64
+      var imgExt = (filename.split('.').pop() || '').toLowerCase()
+      var imgMime = imgExt === 'png' ? 'image/png' : imgExt === 'webp' ? 'image/webp' : 'image/jpeg'
+      imageDataUrl = 'data:' + imgMime + ';base64,' + base64
     } catch (fetchErr) {
       $app
         .logger()
