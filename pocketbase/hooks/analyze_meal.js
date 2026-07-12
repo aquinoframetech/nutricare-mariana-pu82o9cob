@@ -86,8 +86,45 @@ Chaves obrigatórias:
 
       return e.json(200, { success: true, meal: meal.id })
     } catch (err) {
-      $app.logger().error('analyze_meal error', 'msg', err.message)
-      return e.badRequestError(err.message)
+      var aErrMsg = err.message || 'unknown error'
+      var aStatus = 500
+      if (typeof SkipAiError !== 'undefined' && err instanceof SkipAiError) {
+        aStatus = err.status || 502
+      } else if (typeof SkipAiConfigError !== 'undefined' && err instanceof SkipAiConfigError) {
+        aStatus = 503
+      }
+
+      var aBody = e.requestInfo().body || {}
+      var aMealId = aBody.meal_id || ''
+
+      try {
+        var mealFailSync = $app.findRecordById('meals', aMealId)
+        mealFailSync.set('analysis_status', 'failed')
+        mealFailSync.set('ai_notes', 'Erro na análise: ' + aErrMsg + ' (status: ' + aStatus + ')')
+        $app.save(mealFailSync)
+      } catch (_) {}
+
+      try {
+        var aLogCol = $app.findCollectionByNameOrId('chatgpt_analysis_logs')
+        var aLog = new Record(aLogCol)
+        aLog.set('prompt', 'analyze_meal_sync for meal: ' + aMealId)
+        aLog.set('response', aErrMsg)
+        aLog.set('user_id', e.auth ? e.auth.id : '')
+        aLog.set('type', 'meal_analysis_sync_error')
+        aLog.set('model_used', 'fast')
+        if (aMealId) aLog.set('meal_id', aMealId)
+        aLog.set('provider_status_code', aStatus)
+        aLog.set('original_error', aErrMsg)
+        aLog.set('estimated_cost', 0)
+        aLog.set('request_id', 'SYNC_' + $security.randomString(8))
+        $app.saveNoValidate(aLog)
+      } catch (_) {}
+
+      $app.logger().error('analyze_meal error', 'msg', aErrMsg, 'status', aStatus)
+      return e.json(aStatus >= 500 ? 502 : aStatus, {
+        error: aErrMsg,
+        provider_status: aStatus,
+      })
     }
   },
   $apis.requireAuth(),

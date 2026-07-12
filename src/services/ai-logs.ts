@@ -11,6 +11,9 @@ export interface AiLog {
   estimated_cost: number
   created: string
   updated: string
+  provider_status_code?: number
+  original_error?: string
+  request_id?: string
   expand?: { user_id?: { id: string; name: string; email: string } }
 }
 

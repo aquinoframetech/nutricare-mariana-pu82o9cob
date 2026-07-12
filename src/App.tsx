@@ -25,6 +25,7 @@ import PatientsList from './pages/nutri/PatientsList'
 import PatientDetail from './pages/nutri/PatientDetail'
 import Alerts from './pages/nutri/Alerts'
 import NutriChat from './pages/nutri/Chat'
+import Diagnostic from './pages/nutri/Diagnostic'
 
 const App = () => (
   <BrowserRouter>
@@ -70,6 +71,7 @@ const App = () => (
                 <Route path="patients/:id" element={<PatientDetail />} />
                 <Route path="alerts" element={<Alerts />} />
                 <Route path="chat" element={<NutriChat />} />
+                <Route path="diagnostic" element={<Diagnostic />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

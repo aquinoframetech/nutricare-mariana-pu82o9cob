@@ -192,8 +192,31 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         } catch (_) {}
 
         try {
+          var errLogCol = $app.findCollectionByNameOrId('chatgpt_analysis_logs')
+          var errLog = new Record(errLogCol)
+          errLog.set('prompt', 'meal_worker analysis for meal: ' + mealId)
+          errLog.set('response', errMsg)
+          if (userId) errLog.set('user_id', userId)
+          errLog.set('type', 'meal_analysis_error')
+          errLog.set('model_used', modelUsed)
+          errLog.set('meal_id', mealId)
+          errLog.set('request_id', requestId)
+          errLog.set('provider_status_code', openaiStatus || 500)
+          errLog.set('original_error', errMsg)
+          errLog.set('response_time_ms', new Date().getTime() - tsStart)
+          errLog.set('estimated_cost', 0)
+          $app.saveNoValidate(errLog)
+        } catch (logErr3) {
+          $app.logger().error('meal_worker chatgpt_analysis_logs error', 'msg', logErr3.message)
+        }
+
+        try {
           var mealFail = $app.findRecordById('meals', mealId)
           mealFail.set('analysis_status', 'failed')
+          mealFail.set(
+            'ai_notes',
+            'Erro na análise: ' + errMsg + ' (status: ' + (openaiStatus || 500) + ')',
+          )
           $app.save(mealFail)
         } catch (mealErr) {
           $app.logger().error('meal_worker update meal error', 'msg', mealErr.message)
