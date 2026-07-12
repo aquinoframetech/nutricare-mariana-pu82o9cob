@@ -27,8 +27,7 @@ routerAdd(
     try {
       var existingJob = $app.findFirstRecordByFilter(
         'meal_analysis_queue',
-        'meal_id = {:mid}',
-        (mid = mealId),
+        "meal_id = '" + mealId + "'",
       )
       existingJob.set('status', 'pending')
       existingJob.set('attempts', 0)

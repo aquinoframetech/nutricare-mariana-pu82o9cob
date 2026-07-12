@@ -46,7 +46,7 @@ export default function RegisterMeal() {
       if (e.action === 'update' && e.record.id === mealId) {
         const meal = e.record as unknown as Meal
         const status = meal.analysis_status
-        if (status === 'awaiting_confirmation' && meal.ai_food_identified) {
+        if (status === 'awaiting_confirmation') {
           setAnalysisResult(meal)
           setCalories(meal.calories || 0)
           setProtein(meal.proteins || 0)

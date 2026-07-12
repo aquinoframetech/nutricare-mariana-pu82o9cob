@@ -3,6 +3,7 @@ import { chatWithAgent } from '@/services/agent'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Send, Bot, AlertCircle } from 'lucide-react'
 import { type DisplayMessage } from '@/lib/skipAi'
 import { ChatMessage } from '@/components/shared/chat-message'
@@ -36,7 +37,7 @@ export function ChatInterface({ title = 'Assistente IA', subtitle }: ChatInterfa
       setLoading(true)
       try {
         const result = await chatWithAgent(userMsg, conversationId)
-        setConversationId(result.conversation_id)
+        if (result.conversation_id) setConversationId(result.conversation_id)
         setMessages((prev) => [
           ...prev,
           {
@@ -65,8 +66,15 @@ export function ChatInterface({ title = 'Assistente IA', subtitle }: ChatInterfa
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 pt-4 pb-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <h1 className="text-xl font-bold">{title}</h1>
-        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">{title}</h1>
+            {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+          </div>
+          <Badge variant="secondary" className="text-xs shrink-0">
+            IA Nutricional
+          </Badge>
+        </div>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 p-4">
         {messages.length === 0 && (

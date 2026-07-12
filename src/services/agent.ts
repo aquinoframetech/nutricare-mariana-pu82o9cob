@@ -1,6 +1,17 @@
 import pb from '@/lib/pocketbase/client'
 
-export const chatWithAgent = (message: string, conversationId: string | null) =>
+export interface AgentChatResponse {
+  conversation_id: string
+  content: string
+  citations?: Array<{ n: number; excerpt: string; source_id: string; distance: number }>
+  message_id: string
+  mode?: 'general_nutrition_estimate' | 'clinical_record_analysis'
+}
+
+export const chatWithAgent = (
+  message: string,
+  conversationId: string | null,
+): Promise<AgentChatResponse> =>
   pb.send('/backend/v1/agent-chat', {
     method: 'POST',
     body: JSON.stringify({ message, conversation_id: conversationId }),
