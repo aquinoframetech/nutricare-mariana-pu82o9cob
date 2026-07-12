@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
-import { submitMealAnalysis, retryMealAnalysis, updateMeal } from '@/services/meals'
+import { submitMealAnalysis, retryMealAnalysis, updateMeal, getMeal } from '@/services/meals'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -35,6 +35,7 @@ export default function RegisterMeal() {
   const [sodium, setSodium] = useState(0)
   const [isRetrying, setIsRetrying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [clientRequestId, setClientRequestId] = useState('')
   const { user } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -67,21 +68,58 @@ export default function RegisterMeal() {
     if (!selectedFile) return
     setFile(selectedFile)
     setPhotoPreview(URL.createObjectURL(selectedFile))
+    setClientRequestId(crypto.randomUUID())
+  }
+
+  const applyMealResult = (meal: Meal) => {
+    setAnalysisResult(meal)
+    setCalories(meal.calories || 0)
+    setProtein(meal.proteins || 0)
+    setCarbs(meal.carbs || 0)
+    setFat(meal.fats || 0)
+    setFibers(meal.fibers || 0)
+    setSodium(meal.sodium || 0)
   }
 
   const handleSubmit = async () => {
     if (!file || !user || isSubmitting) return
+    const crid = clientRequestId || crypto.randomUUID()
+    if (!clientRequestId) setClientRequestId(crid)
     setIsSubmitting(true)
     try {
-      const result = await submitMealAnalysis(file, description || 'Refeição')
+      const result = await submitMealAnalysis(file, description || 'Refeição', crid)
       if (result.meal_id) {
         setMealId(result.meal_id)
-        setStep(2)
+        if (result.status === 'awaiting_confirmation') {
+          try {
+            const meal = await getMeal(result.meal_id)
+            applyMealResult(meal)
+            setStep(3)
+          } catch {
+            setStep(2)
+          }
+        } else if (result.status === 'failed') {
+          setStep(5)
+        } else {
+          setStep(2)
+        }
       } else {
         throw new Error('Invalid response from server')
       }
-    } catch {
-      toast({ title: 'Erro ao enviar refeição. Tente novamente.', variant: 'destructive' })
+    } catch (err: any) {
+      const errRequestId = err?.response?.request_id || 'unknown'
+      const errCode = err?.response?.internal_error_code || err?.response?.error || 'UNKNOWN'
+      console.error('[Meal Upload Error]', {
+        request_id: errRequestId,
+        internal_error_code: errCode,
+        client_request_id: crid,
+        error: err,
+      })
+      toast({
+        title: 'Erro ao enviar refeição. Tente novamente.',
+        variant: 'destructive',
+        description: errCode !== 'UNKNOWN' ? `Código: ${errCode}` : undefined,
+      })
     } finally {
       setIsSubmitting(false)
     }

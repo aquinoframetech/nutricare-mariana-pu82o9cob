@@ -49,6 +49,7 @@ export interface Meal {
   location: string
   ai_notes: string
   analysis_status?: string
+  client_request_id?: string
   ai_model?: string
   analysis_version?: string
   analyzed_at?: string

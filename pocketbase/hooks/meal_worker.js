@@ -51,6 +51,10 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
   job.set('started_at', nowIso)
   $app.saveNoValidate(job)
 
+  $app
+    .logger()
+    .info('worker.job_claimed', 'request_id', requestId, 'meal_id', mealId, 'attempts', attempts)
+
   var openaiStatus = 200
   var timeoutSource = 'unknown'
   var durImgVal = 0,
@@ -228,6 +232,18 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
       throw parseErr
     }
 
+    $app
+      .logger()
+      .info(
+        'worker.openai_completed',
+        'request_id',
+        requestId,
+        'meal_id',
+        mealId,
+        'openai_status',
+        openaiStatus,
+      )
+
     var tNutri = Date.now()
     var foodNames = []
     if (parsed.alimentos_identificados) {
@@ -271,6 +287,18 @@ cronAdd('meal_worker', '*/30 * * * * *', () => {
     meal.set('analyzed_at', nowIso)
     $app.save(meal)
     durDbSave = Date.now() - tDb
+
+    $app
+      .logger()
+      .info(
+        'worker.meal_updated',
+        'request_id',
+        requestId,
+        'meal_id',
+        mealId,
+        'analysis_status',
+        'awaiting_confirmation',
+      )
 
     job.set('status', 'completed')
     job.set('finished_at', new Date().toISOString())
