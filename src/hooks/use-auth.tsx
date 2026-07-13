@@ -13,7 +13,10 @@ interface AuthContextType {
     password: string,
     role: Role,
   ) => Promise<{ error: any; message: string | null; fieldErrors: FieldErrors }>
-  signIn: (email: string, password: string) => Promise<{ error: any; message: string | null }>
+  signIn: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: any; message: string | null; role?: string }>
   signOut: () => void
   loading: boolean
 }
@@ -141,8 +144,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      await pb.collection('users').authWithPassword(email, password)
-      return { error: null }
+      const result = await pb.collection('users').authWithPassword(email, password)
+      return { error: null, message: null, role: result.record.role || 'patient' }
     } catch (error) {
       logAuthError('use-auth.tsx:signIn', error)
       return { error, message: mapSignInError(error) }

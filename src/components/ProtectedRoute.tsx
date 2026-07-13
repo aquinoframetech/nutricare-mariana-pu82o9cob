@@ -15,7 +15,7 @@ export function ProtectedRoute({ children, role }: { children: React.ReactNode; 
 
   if (!isAuthenticated) return <Navigate to="/" replace />
   if (role && user?.role !== role) {
-    const redirect = user?.role === 'patient' ? '/patient' : '/nutri'
+    const redirect = user?.role === 'patient' ? '/patient' : '/nutri/dashboard'
     return <Navigate to={redirect} replace />
   }
 

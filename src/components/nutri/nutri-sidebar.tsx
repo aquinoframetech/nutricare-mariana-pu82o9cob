@@ -31,19 +31,23 @@ export function NutriSidebar() {
   const location = useLocation()
 
   const navItems = [
-    { title: 'Visão Geral', url: '/nutri', icon: LayoutDashboard, end: true },
+    { title: 'Visão Geral', url: '/nutri/dashboard', icon: LayoutDashboard, end: true },
     { title: 'Meus Pacientes', url: '/nutri/patients', icon: Users, end: false },
     { title: 'Alertas', url: '/nutri/alerts', icon: Bell, end: false },
     { title: 'Chat IA', url: '/nutri/chat', icon: MessageCircle, end: false },
   ]
 
   const diagnosticItems = [
-    { title: 'Diagnóstico IA', url: '/nutri/diagnostic', icon: Stethoscope, end: false },
-    { title: 'Worker Status', url: '/nutri/worker-diagnostic', icon: Activity, end: false },
+    { title: 'Diagnóstico de IA', url: '/nutri/diagnostic', icon: Stethoscope, end: false },
+    { title: 'Status do Worker', url: '/nutri/worker-diagnostic', icon: Activity, end: false },
   ]
 
-  const isActiveRoute = (url: string, end: boolean) =>
-    end ? location.pathname === url : location.pathname.startsWith(url)
+  const isActiveRoute = (url: string, end: boolean) => {
+    if (url === '/nutri/dashboard') {
+      return location.pathname === '/nutri' || location.pathname === '/nutri/dashboard'
+    }
+    return end ? location.pathname === url : location.pathname.startsWith(url)
+  }
 
   const handleLogout = () => {
     try {
@@ -76,7 +80,8 @@ export function NutriSidebar() {
                       to={item.url}
                       end={item.end}
                       className={cn(
-                        isActiveRoute(item.url, item.end) && 'bg-muted font-medium text-primary',
+                        isActiveRoute(item.url, item.end) &&
+                          'bg-primary/10 font-medium text-primary',
                       )}
                     >
                       <item.icon />
@@ -88,30 +93,35 @@ export function NutriSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarSeparator />
-        <SidebarGroup>
-          <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {diagnosticItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.end}
-                      className={cn(
-                        isActiveRoute(item.url, item.end) && 'bg-muted font-medium text-primary',
-                      )}
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {user?.role === 'nutritionist' && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {diagnosticItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.url}
+                          end={item.end}
+                          className={cn(
+                            isActiveRoute(item.url, item.end) &&
+                              'bg-primary/10 font-medium text-primary',
+                          )}
+                        >
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
       <SidebarFooter className="p-4 border-t">
         <div className="flex items-center gap-3 mb-4">

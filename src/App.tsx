@@ -68,6 +68,7 @@ const App = () => (
                 }
               >
                 <Route index element={<NutriDashboard />} />
+                <Route path="dashboard" element={<NutriDashboard />} />
                 <Route path="patients" element={<PatientsList />} />
                 <Route path="patients/:id" element={<PatientDetail />} />
                 <Route path="alerts" element={<Alerts />} />

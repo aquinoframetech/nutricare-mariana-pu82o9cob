@@ -18,7 +18,7 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(user.role === 'patient' ? '/patient' : '/nutri', { replace: true })
+      navigate(user.role === 'patient' ? '/patient' : '/nutri/dashboard', { replace: true })
     }
   }, [isAuthenticated, user, navigate])
 
@@ -31,16 +31,20 @@ export default function Login() {
   }
 
   if (isAuthenticated && user) {
-    return <Navigate to={user.role === 'patient' ? '/patient' : '/nutri'} replace />
+    return <Navigate to={user.role === 'patient' ? '/patient' : '/nutri/dashboard'} replace />
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error: signInError, message } = await signIn(email, password)
-    if (signInError) setError(message || mapSignInError(signInError))
-    setLoading(false)
+    const { error: signInError, message, role } = await signIn(email, password)
+    if (signInError) {
+      setError(message || mapSignInError(signInError))
+      setLoading(false)
+    } else if (role) {
+      navigate(role === 'patient' ? '/patient' : '/nutri/dashboard', { replace: true })
+    }
   }
 
   return (

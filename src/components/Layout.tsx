@@ -1,9 +1,9 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { NutriSidebar } from '@/components/nutri/nutri-sidebar'
 import { PatientNav } from '@/components/patient/patient-nav'
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
-import { LogOut, Utensils } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 
@@ -29,7 +29,16 @@ export default function Layout() {
       <SidebarProvider>
         <NutriSidebar />
         <SidebarInset>
-          <main className="flex-1 p-6 overflow-y-auto relative z-10">
+          <header className="flex h-14 items-center gap-2 border-b px-4 lg:hidden">
+            <SidebarTrigger />
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground text-sm">
+                N
+              </div>
+              <span className="font-bold tracking-tight">NutriCare</span>
+            </div>
+          </header>
+          <main className="flex-1 p-4 md:p-6 overflow-y-auto">
             <Outlet />
           </main>
         </SidebarInset>
@@ -61,7 +70,7 @@ export default function Layout() {
             </div>
           </header>
         )}
-        <main className="pb-20 max-w-md mx-auto relative z-10">
+        <main className="pb-20 max-w-md mx-auto">
           <Outlet />
         </main>
         <PatientNav />
