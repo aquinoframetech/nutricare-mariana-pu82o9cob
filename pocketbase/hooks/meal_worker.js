@@ -95,6 +95,25 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
       var requestId = record.getString('request_id') || 'REQ_' + $security.randomString(8)
       var mealId = record.getString('meal_id')
       var tsStart = new Date().getTime()
+      var queueCreatedAt = record.getString('created')
+      var queueWaitMs = queueCreatedAt ? tsStart - new Date(queueCreatedAt).getTime() : 0
+      $app
+        .logger()
+        .info(
+          'MEAL_WORKER_JOB_PICKED',
+          'meal_id',
+          mealId,
+          'request_id',
+          requestId,
+          'queue_created_at',
+          queueCreatedAt,
+          'queue_wait_ms',
+          queueWaitMs,
+          'attempts',
+          record.getInt('attempts'),
+          'queue_status',
+          record.getString('status'),
+        )
       var tImgVal = 0,
         tAiReq = 0,
         tParse = 0,

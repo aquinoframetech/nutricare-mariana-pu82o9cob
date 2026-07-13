@@ -295,6 +295,12 @@ export default function RegisterMeal() {
         throw new Error('Invalid response from server')
       }
     } catch (err: any) {
+      console.error('[NutriCare Meal Submit Error]', {
+        status: err?.status ?? 'N/A',
+        message: err?.message ?? 'N/A',
+        response: err?.response ?? 'N/A',
+        data: err?.response?.data ?? 'N/A',
+      })
       const categorized = categorizeMealError(err)
       const icon: 'network' | 'auth' | 'file' | 'server' = categorized.title.includes('Conexão')
         ? 'network'
@@ -321,8 +327,20 @@ export default function RegisterMeal() {
     try {
       await retryMealAnalysis(mealId)
       setStep(2)
-    } catch {
-      toast({ title: 'Erro ao reprocessar. Tente novamente.', variant: 'destructive' })
+    } catch (err: any) {
+      console.error('[NutriCare Meal Retry Error]', {
+        status: err?.status ?? 'N/A',
+        message: err?.message ?? 'N/A',
+        response: err?.response ?? 'N/A',
+        data: err?.response?.data ?? 'N/A',
+        mealId,
+      })
+      const categorized = categorizeMealError(err)
+      toast({
+        title: categorized.title,
+        variant: 'destructive',
+        description: categorized.description,
+      })
     } finally {
       setIsRetrying(false)
     }

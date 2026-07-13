@@ -147,7 +147,14 @@ export function categorizeMealError(error: unknown): { title: string; descriptio
   }
 
   if (error.status >= 500) {
-    return { title: 'Erro no servidor. Tente novamente em instantes.' }
+    const serverMsg = (error.response as Record<string, unknown>)?.error
+    return {
+      title:
+        typeof serverMsg === 'string' && serverMsg.length > 0
+          ? serverMsg
+          : 'Erro no servidor. Tente novamente em instantes.',
+      description: `HTTP ${error.status} — ${error.message || 'sem detalhes'}`,
+    }
   }
 
   return { title: 'Erro ao enviar refeição. Tente novamente.' }
