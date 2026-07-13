@@ -39,7 +39,7 @@ export function NutriSidebar() {
 
   const diagnosticItems = [
     { title: 'Diagnóstico de IA', url: '/nutri/diagnostic', icon: Stethoscope, end: false },
-    { title: 'Status do Worker', url: '/nutri/worker-diagnostic', icon: Activity, end: false },
+    { title: 'Worker Status', url: '/nutri/worker-diagnostic', icon: Activity, end: false },
   ]
 
   const isActiveRoute = (url: string, end: boolean) => {

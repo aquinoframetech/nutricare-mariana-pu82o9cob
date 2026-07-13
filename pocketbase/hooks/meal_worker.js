@@ -11,60 +11,26 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
       new Date().toISOString(),
     )
 
-  var bytesToBase64Fixed = function (bytes) {
-    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    var result = ''
-    var len = bytes.length
-    var getByte = function (i) {
-      if (typeof bytes.charCodeAt === 'function') {
-        return bytes.charCodeAt(i) & 0xff
-      }
-      return bytes[i] & 0xff
-    }
-    for (var i = 0; i < len; i += 3) {
-      var a = getByte(i)
-      var b = i + 1 < len ? getByte(i + 1) : 0
-      var c = i + 2 < len ? getByte(i + 2) : 0
-      result += chars[a >> 2]
-      result += chars[((a & 3) << 4) | (b >> 4)]
-      result += i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '='
-      result += i + 2 < len ? chars[c & 63] : '='
-    }
-    return result
-  }
+  function bytesToBase64(bytes) {
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
+    var base64 = ''
+    var i = 0
+    while (i < bytes.length) {
+      var b0 = bytes[i++]
+      var b1 = i < bytes.length ? bytes[i++] : 0
+      var b2 = i < bytes.length ? bytes[i++] : 0
 
-  var detectImageMime = function (fileName, bytes) {
-    var getByte = function (i) {
-      if (typeof bytes.charCodeAt === 'function') {
-        return bytes.charCodeAt(i) & 0xff
-      }
-      return bytes[i] & 0xff
+      var encoded1 = chars.charAt(b0 >> 2)
+      var encoded2 = chars.charAt(((b0 & 3) << 4) | (b1 >> 4))
+      var encoded3 = chars.charAt(((b1 & 15) << 2) | (b2 >> 6))
+      var encoded4 = chars.charAt(b2 & 63)
+
+      if (i - 1 >= bytes.length) encoded3 = '='
+      if (i >= bytes.length) encoded4 = '='
+
+      base64 += encoded1 + encoded2 + encoded3 + encoded4
     }
-    var len = bytes.length
-    if (len >= 4) {
-      var b0 = getByte(0),
-        b1 = getByte(1),
-        b2 = getByte(2),
-        b3 = getByte(3)
-      if (b0 === 0x89 && b1 === 0x50 && b2 === 0x4e && b3 === 0x47) return 'image/png'
-      if (b0 === 0xff && b1 === 0xd8 && b2 === 0xff) return 'image/jpeg'
-      if (b0 === 0x47 && b1 === 0x49 && b2 === 0x46 && b3 === 0x38) return 'image/gif'
-      if (b0 === 0x52 && b1 === 0x49 && b2 === 0x46 && b3 === 0x46 && len >= 12) {
-        if (
-          getByte(8) === 0x57 &&
-          getByte(9) === 0x45 &&
-          getByte(10) === 0x42 &&
-          getByte(11) === 0x50
-        )
-          return 'image/webp'
-      }
-    }
-    var ext = (fileName || '').split('.').pop().toLowerCase()
-    if (ext === 'png') return 'image/png'
-    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
-    if (ext === 'webp') return 'image/webp'
-    if (ext === 'gif') return 'image/gif'
-    return 'image/jpeg'
+    return base64
   }
 
   try {
@@ -80,24 +46,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
       var record = pending[i]
       var requestId = record.getString('request_id') || 'REQ_' + $security.randomString(8)
       var mealId = record.getString('meal_id')
-
-      $app
-        .logger()
-        .info(
-          'MEAL_WORKER_VERSION',
-          'worker_version',
-          WORKER_VERSION,
-          'meal_id',
-          mealId,
-          'request_id',
-          requestId,
-          'queue_status_before',
-          record.getString('status'),
-          'attempts_before',
-          record.getInt('attempts'),
-          'timestamp',
-          new Date().toISOString(),
-        )
 
       var tsStart = new Date().getTime()
 
@@ -123,43 +71,9 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         $app.save(record)
         tDb += new Date().getTime() - t0
 
-        $app
-          .logger()
-          .info(
-            'MEAL_WORKER_CHECKPOINT',
-            'checkpoint',
-            'queue_locked',
-            'worker_version',
-            WORKER_VERSION,
-            'meal_id',
-            mealId,
-            'request_id',
-            requestId,
-            'queue_status',
-            'processing',
-            'attempts',
-            record.getInt('attempts'),
-          )
-
         t0 = new Date().getTime()
         var meal = $app.findRecordById('meals', mealId)
         tDb += new Date().getTime() - t0
-
-        $app
-          .logger()
-          .info(
-            'MEAL_WORKER_CHECKPOINT',
-            'checkpoint',
-            'meal_loaded',
-            'worker_version',
-            WORKER_VERSION,
-            'meal_id',
-            mealId,
-            'request_id',
-            requestId,
-            'meal_analysis_status',
-            meal.getString('analysis_status'),
-          )
 
         try {
           var patient = $app.findRecordById('patients', meal.getString('patient_id'))
@@ -184,116 +98,73 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         t0 = new Date().getTime()
         var userContent = [{ type: 'text', text: aiInput }]
         var hasImageContent = false
+
         if (photos.length > 0) {
           var p = photos[0]
           var fileName = p.getString('image')
-          if (fileName) {
-            var fileKey = p.baseFilesPath() + '/' + fileName
-            var fsys = $app.newFilesystem()
-            var reader = null
-            try {
-              if (!fsys.exists(fileKey)) {
-                throw new Error('Image file not found in storage: ' + fileKey)
-              }
 
-              reader = fsys.getReader(fileKey)
-              var imgChunks = []
-              var imgTotalLen = 0
+          if (fileName) {
+            try {
+              var fileKey = p.baseFilesPath() + '/' + fileName
+              var fsys = $app.newFilesystem()
+              var reader = fsys.getReader(fileKey)
+
               var maxBytes = 10 * 1024 * 1024
+              var chunks = []
+              var totalBytes = 0
               var readBuf = new Uint8Array(8192)
 
               while (true) {
-                var bytesRead
+                var bytesRead = 0
                 try {
                   bytesRead = reader.read(readBuf)
-                } catch (readEx) {
+                } catch (e) {
                   break
                 }
                 if (!bytesRead || bytesRead <= 0) break
-                imgTotalLen += bytesRead
-                if (imgTotalLen > maxBytes) {
+                for (var b = 0; b < bytesRead; b++) {
+                  chunks.push(readBuf[b])
+                }
+                totalBytes += bytesRead
+                if (totalBytes > maxBytes) {
                   throw new Error('Image exceeds 10MB safety limit')
                 }
-                var chunkStr = ''
-                for (var bi = 0; bi < bytesRead; bi++) {
-                  chunkStr += String.fromCharCode(readBuf[bi])
-                }
-                imgChunks.push(chunkStr)
               }
 
-              var imgBytes = imgChunks.join('')
-              if (imgBytes.length === 0) {
+              if (totalBytes === 0) {
                 throw new Error('Image file is empty after reading from storage')
               }
 
+              var imgBytes = new Uint8Array(chunks)
               var imgSizeBytes = imgBytes.length
               imgSizeKb = Math.round(imgSizeBytes / 1024)
-              var mimeType = detectImageMime(fileName, imgBytes)
-              var base64Img = bytesToBase64Fixed(imgBytes)
 
-              if (!base64Img || base64Img.length === 0) {
-                throw new Error('Base64 encoding produced empty result')
-              }
+              var base64Img = bytesToBase64(imgBytes)
+
+              var mimeType = 'image/jpeg'
+              if (fileName.toLowerCase().endsWith('.png')) mimeType = 'image/png'
+              else if (fileName.toLowerCase().endsWith('.webp')) mimeType = 'image/webp'
 
               var dataUrl = 'data:' + mimeType + ';base64,' + base64Img
               userContent.push({ type: 'image_url', image_url: { url: dataUrl } })
               hasImageContent = true
-
-              $app
-                .logger()
-                .info(
-                  'meal_worker image processed',
-                  'request_id',
-                  requestId,
-                  'meal_id',
-                  mealId,
-                  'file_name',
-                  fileName,
-                  'image_size_bytes',
-                  imgSizeBytes,
-                  'base64_length',
-                  base64Img.length,
-                  'mime',
-                  mimeType,
-                )
             } catch (imgErr) {
+              $app.logger().error('Failed to read image to base64', 'error', imgErr.message)
               throw imgErr
             } finally {
-              if (reader) {
-                try {
-                  reader.close()
-                } catch (_) {}
-              }
               try {
-                fsys.close()
+                if (fsys) fsys.close()
               } catch (_) {}
             }
           }
         }
+
         if (photos.length > 0 && !hasImageContent) {
           throw new Error(
             'IMAGE_NOT_ATTACHED_TO_AI_REQUEST: photos found but no image content was prepared for the AI call',
           )
         }
         tImgVal = new Date().getTime() - t0
-
-        $app
-          .logger()
-          .info(
-            'MEAL_WORKER_CHECKPOINT',
-            'checkpoint',
-            'image_processed',
-            'worker_version',
-            WORKER_VERSION,
-            'meal_id',
-            mealId,
-            'request_id',
-            requestId,
-            'has_image',
-            hasImageContent,
-            'image_size_kb',
-            imgSizeKb,
-          )
 
         t0 = new Date().getTime()
         var aiResult = $ai.chat({
@@ -310,24 +181,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         })
         tAiReq = new Date().getTime() - t0
         openaiStatus = 200
-
-        $app
-          .logger()
-          .info(
-            'MEAL_WORKER_CHECKPOINT',
-            'checkpoint',
-            'ai_request_sent',
-            'worker_version',
-            WORKER_VERSION,
-            'meal_id',
-            mealId,
-            'request_id',
-            requestId,
-            'openai_status',
-            openaiStatus,
-            'ai_duration_ms',
-            tAiReq,
-          )
 
         t0 = new Date().getTime()
         var content = aiResult.choices[0].message.content
@@ -349,24 +202,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         }
         tNutri = new Date().getTime() - t0
 
-        $app
-          .logger()
-          .info(
-            'MEAL_WORKER_CHECKPOINT',
-            'checkpoint',
-            'ai_response_parsed',
-            'worker_version',
-            WORKER_VERSION,
-            'meal_id',
-            mealId,
-            'request_id',
-            requestId,
-            'calories',
-            estimatedValues.calories,
-            'ai_confidence',
-            estimatedValues.ai_confidence,
-          )
-
         t0 = new Date().getTime()
         meal.set('ai_food_identified', estimatedValues.ai_food_identified)
         meal.set('ai_description', estimatedValues.ai_description)
@@ -386,43 +221,11 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         $app.save(meal)
         tDb += new Date().getTime() - t0
 
-        $app
-          .logger()
-          .info(
-            'MEAL_WORKER_CHECKPOINT',
-            'checkpoint',
-            'meal_saved',
-            'worker_version',
-            WORKER_VERSION,
-            'meal_id',
-            mealId,
-            'request_id',
-            requestId,
-            'meal_analysis_status',
-            meal.getString('analysis_status'),
-          )
-
         t0 = new Date().getTime()
         record.set('status', 'completed')
         record.set('finished_at', new Date().toISOString())
         $app.save(record)
         tDb += new Date().getTime() - t0
-
-        $app
-          .logger()
-          .info(
-            'MEAL_WORKER_CHECKPOINT',
-            'checkpoint',
-            'queue_completed',
-            'worker_version',
-            WORKER_VERSION,
-            'meal_id',
-            mealId,
-            'request_id',
-            requestId,
-            'total_time_ms',
-            new Date().getTime() - tsStart,
-          )
 
         var totalMs = new Date().getTime() - tsStart
         try {
@@ -470,43 +273,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
           errString = String(err)
         } catch (_) {}
 
-        $app.logger().error(
-          'MEAL_WORKER_ERROR_CAUGHT',
-          'worker_version',
-          WORKER_VERSION,
-          'meal_id',
-          mealId,
-          'request_id',
-          requestId,
-          'error_message',
-          errMsg,
-          'error_type',
-          errType,
-          'error_string',
-          errString,
-          'error_stack',
-          errStack,
-          'checkpoint_last_known',
-          (function () {
-            if (tAiReq > 0 && tParse === 0) return 'ai_request_sent'
-            if (tParse > 0 && tNutri === 0) return 'ai_response_parsed'
-            if (tNutri > 0 && tDb === 0) return 'ai_response_parsed'
-            if (tImgVal > 0 && tAiReq === 0) return 'image_processed'
-            if (tImgVal === 0 && tAiReq === 0) return 'meal_loaded'
-            return 'queue_locked'
-          })(),
-          'timing_img_val_ms',
-          tImgVal,
-          'timing_ai_req_ms',
-          tAiReq,
-          'timing_parse_ms',
-          tParse,
-          'timing_nutri_ms',
-          tNutri,
-          'timing_db_ms',
-          tDb,
-        )
-
         if (errMsg.toLowerCase().indexOf('timeout') >= 0) {
           timeoutSource = 'openai'
         }
@@ -537,27 +303,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
               queueSaveErr.message || 'unknown',
             )
         }
-
-        try {
-          var queueStateAfter = $app.findRecordById('meal_analysis_queue', record.id)
-          $app
-            .logger()
-            .info(
-              'MEAL_WORKER_QUEUE_STATE_AFTER_FAILURE',
-              'worker_version',
-              WORKER_VERSION,
-              'meal_id',
-              mealId,
-              'request_id',
-              requestId,
-              'queue_status',
-              queueStateAfter.getString('status'),
-              'queue_error_sanitized',
-              queueStateAfter.getString('error_sanitized'),
-              'queue_attempts',
-              queueStateAfter.getInt('attempts'),
-            )
-        } catch (_) {}
 
         try {
           var errLogCol = $app.findCollectionByNameOrId('chatgpt_analysis_logs')
@@ -603,27 +348,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         }
 
         try {
-          var mealStateAfter = $app.findRecordById('meals', mealId)
-          $app
-            .logger()
-            .info(
-              'MEAL_WORKER_MEAL_STATE_AFTER_FAILURE',
-              'worker_version',
-              WORKER_VERSION,
-              'meal_id',
-              mealId,
-              'request_id',
-              requestId,
-              'meal_analysis_status',
-              mealStateAfter.getString('analysis_status'),
-              'meal_ai_notes',
-              mealStateAfter.getString('ai_notes'),
-              'meal_ai_food_identified',
-              mealStateAfter.getString('ai_food_identified'),
-            )
-        } catch (_) {}
-
-        try {
           var profLogErr = null
           try {
             profLogErr = $app.findFirstRecordByData(
@@ -654,28 +378,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         } catch (logErr2) {
           $app.logger().error('meal_worker error profiling log', 'msg', logErr2.message)
         }
-
-        $app
-          .logger()
-          .error(
-            'MEAL_WORKER_PROCESSING_ERROR',
-            'worker_version',
-            WORKER_VERSION,
-            'request_id',
-            requestId,
-            'meal_id',
-            mealId,
-            'error',
-            errMsg,
-            'error_type',
-            errType,
-            'stack',
-            errStack,
-            'openai_status',
-            openaiStatus || 500,
-            'timeout_source',
-            timeoutSource,
-          )
       }
     }
   } catch (err) {
@@ -691,14 +393,4 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         err.stack || '',
       )
   }
-
-  $app
-    .logger()
-    .info(
-      'MEAL_WORKER_CRON_END',
-      'worker_version',
-      WORKER_VERSION,
-      'timestamp',
-      new Date().toISOString(),
-    )
 })

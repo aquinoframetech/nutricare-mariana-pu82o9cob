@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -6,8 +6,23 @@ import { AuthProvider } from './contexts/auth-context'
 import { DataProvider } from './contexts/data-context'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import Layout from './components/Layout'
+import { useAuth } from './hooks/use-auth'
 
 import Login from './pages/Login'
+
+const RootRoute = () => {
+  const { user, isAuthenticated, loading } = useAuth()
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Carregando...</div>
+      </div>
+    )
+  if (isAuthenticated && user) {
+    return <Navigate to={user.role === 'nutritionist' ? '/nutri/dashboard' : '/patient'} replace />
+  }
+  return <Login />
+}
 import Signup from './pages/Signup'
 import NotFound from './pages/NotFound'
 
@@ -38,7 +53,7 @@ const App = () => (
           <Routes>
             <Route element={<Layout />}>
               {/* Public Routes */}
-              <Route path="/" element={<Login />} />
+              <Route path="/" element={<RootRoute />} />
               <Route path="/signup" element={<Signup />} />
 
               {/* Patient Routes */}
