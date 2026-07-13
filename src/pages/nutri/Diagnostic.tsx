@@ -1,204 +1,219 @@
 import { useState } from 'react'
-import { CheckCircle2, XCircle, AlertTriangle, Loader2, Stethoscope } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Loader2, Stethoscope, Wifi, Eye } from 'lucide-react'
 import { runAiDiagnostic, type DiagnosticReport } from '@/services/ai-diagnostic'
-import { toast } from 'sonner'
+import { testOpenAiConnection, type OpenAiTestResult } from '@/services/openai-test'
+import { runVisionTest, type VisionTestReport } from '@/services/ai-vision-test'
+import { VisionTestReportView } from '@/components/nutri/vision-test-report'
 
 export default function Diagnostic() {
-  const [report, setReport] = useState<DiagnosticReport | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiReport, setAiReport] = useState<DiagnosticReport | null>(null)
+  const [aiError, setAiError] = useState('')
+  const [connLoading, setConnLoading] = useState(false)
+  const [connResult, setConnResult] = useState<OpenAiTestResult | null>(null)
+  const [connError, setConnError] = useState('')
+  const [visionLoading, setVisionLoading] = useState(false)
+  const [visionReport, setVisionReport] = useState<VisionTestReport | null>(null)
+  const [visionError, setVisionError] = useState('')
 
-  const handleRun = async () => {
-    setLoading(true)
+  const handleAiDiagnostic = async () => {
+    setAiLoading(true)
+    setAiError('')
+    setAiReport(null)
     try {
-      const result = await runAiDiagnostic()
-      setReport(result)
-      toast.success('Diagnóstico concluído')
+      setAiReport(await runAiDiagnostic())
     } catch (err) {
-      toast.error('Falha ao executar diagnóstico: ' + (err as Error).message)
+      setAiError(err instanceof Error ? err.message : 'Erro ao executar diagnóstico')
     } finally {
-      setLoading(false)
+      setAiLoading(false)
     }
   }
 
-  const StatusIcon = ({ ok }: { ok: boolean }) =>
-    ok ? (
-      <CheckCircle2 className="h-5 w-5 text-green-500" />
-    ) : (
-      <XCircle className="h-5 w-5 text-red-500" />
-    )
+  const handleConnTest = async () => {
+    setConnLoading(true)
+    setConnError('')
+    setConnResult(null)
+    try {
+      setConnResult(await testOpenAiConnection())
+    } catch (err) {
+      setConnError(err instanceof Error ? err.message : 'Erro ao testar conexão')
+    } finally {
+      setConnLoading(false)
+    }
+  }
+
+  const handleVisionTest = async () => {
+    setVisionLoading(true)
+    setVisionError('')
+    setVisionReport(null)
+    try {
+      setVisionReport(await runVisionTest())
+    } catch (err) {
+      setVisionError(err instanceof Error ? err.message : 'Erro ao executar teste de visão')
+    } finally {
+      setVisionLoading(false)
+    }
+  }
 
   return (
-    <div className="container mx-auto max-w-4xl space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Stethoscope className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold">Diagnóstico de IA</h1>
-            <p className="text-sm text-muted-foreground">
-              Auditoria da integração de análise de imagens
-            </p>
-          </div>
-        </div>
-        <Button onClick={handleRun} disabled={loading}>
-          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {loading ? 'Executando...' : 'Executar Diagnóstico'}
-        </Button>
+    <div className="container mx-auto max-w-4xl space-y-6 p-4">
+      <div>
+        <h1 className="text-2xl font-bold">Diagnóstico do Sistema</h1>
+        <p className="text-muted-foreground">
+          Ferramentas técnicas para verificar a infraestrutura de IA.
+        </p>
       </div>
 
-      {report && (
-        <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Card>
-              <CardContent className="flex flex-col items-center p-4">
-                <StatusIcon ok={report.platform_credits_active} />
-                <p className="mt-2 text-xs text-muted-foreground">Créditos Ativos</p>
-                <Badge variant={report.platform_credits_active ? 'default' : 'destructive'}>
-                  {report.platform_credits_active ? 'Sim' : 'Não'}
-                </Badge>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="flex flex-col items-center p-4">
-                <StatusIcon ok={report.vision_capability_verified} />
-                <p className="mt-2 text-xs text-muted-foreground">Visão Verificada</p>
-                <Badge variant={report.vision_capability_verified ? 'default' : 'destructive'}>
-                  {report.vision_capability_verified ? 'Sim' : 'Não'}
-                </Badge>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="flex flex-col items-center p-4">
-                <p className="text-xs text-muted-foreground">Provider</p>
-                <p className="text-sm font-semibold text-center">{report.provider_used}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="flex flex-col items-center p-4">
-                <p className="text-xs text-muted-foreground">Alias</p>
-                <Badge variant="secondary">{report.alias_used}</Badge>
-              </CardContent>
-            </Card>
-          </div>
+      <Tabs defaultValue="vision">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="vision" className="gap-1">
+            <Eye className="h-4 w-4" /> Visão
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="gap-1">
+            <Stethoscope className="h-4 w-4" /> IA
+          </TabsTrigger>
+          <TabsTrigger value="conn" className="gap-1">
+            <Wifi className="h-4 w-4" /> Conexão
+          </TabsTrigger>
+        </TabsList>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <StatusIcon ok={report.text_test.success} />
-                  Teste de Texto
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">HTTP Status:</span>
-                  <Badge variant={report.text_test.http_status === 200 ? 'default' : 'destructive'}>
-                    {report.text_test.http_status}
-                  </Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tempo:</span>
-                  <span>{report.text_test.response_time_ms}ms</span>
-                </div>
-                {report.text_test.content_preview && (
-                  <div>
-                    <span className="text-muted-foreground">Resposta:</span>
-                    <p className="mt-1 rounded bg-muted p-2 text-xs">
-                      {report.text_test.content_preview}
-                    </p>
-                  </div>
-                )}
-                {report.text_test.original_error && (
-                  <div>
-                    <span className="text-muted-foreground">Erro:</span>
-                    <p className="mt-1 rounded bg-destructive/10 p-2 text-xs text-destructive">
-                      {report.text_test.original_error}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <StatusIcon ok={report.vision_test.success} />
-                  Teste de Visão
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">HTTP Status:</span>
-                  <Badge
-                    variant={report.vision_test.http_status === 200 ? 'default' : 'destructive'}
-                  >
-                    {report.vision_test.http_status}
-                  </Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tempo:</span>
-                  <span>{report.vision_test.response_time_ms}ms</span>
-                </div>
-                {report.vision_test.content_preview && (
-                  <div>
-                    <span className="text-muted-foreground">Resposta:</span>
-                    <p className="mt-1 rounded bg-muted p-2 text-xs">
-                      {report.vision_test.content_preview}
-                    </p>
-                  </div>
-                )}
-                {report.vision_test.original_error && (
-                  <div>
-                    <span className="text-muted-foreground">Erro:</span>
-                    <p className="mt-1 rounded bg-destructive/10 p-2 text-xs text-destructive">
-                      {report.vision_test.original_error}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
+        <TabsContent value="vision" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                Análise de Causa Raiz
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" /> Teste de Visão IA
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm">{report.root_cause}</p>
-              {report.recommendations.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-medium">Recomendações:</p>
-                  <ul className="space-y-1">
-                    {report.recommendations.map((rec, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                        {rec}
-                      </li>
-                    ))}
-                  </ul>
+              <p className="text-sm text-muted-foreground">
+                Teste isolado que localiza imagens reais no armazenamento, envia para o modelo de IA
+                com visão e compara as descrições retornadas.
+              </p>
+              <Button onClick={handleVisionTest} disabled={visionLoading}>
+                {visionLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Executando...
+                  </>
+                ) : (
+                  'Executar Teste de Visão'
+                )}
+              </Button>
+              {visionError && <p className="text-sm text-red-500">{visionError}</p>}
+              {visionReport && <VisionTestReportView report={visionReport} />}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Stethoscope className="h-5 w-5" /> Diagnóstico IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">Verifica texto e visão do AI Gateway.</p>
+              <Button onClick={handleAiDiagnostic} disabled={aiLoading}>
+                {aiLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Executando...
+                  </>
+                ) : (
+                  'Executar Diagnóstico'
+                )}
+              </Button>
+              {aiError && <p className="text-sm text-red-500">{aiError}</p>}
+              {aiReport && (
+                <div className="space-y-3 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-muted-foreground">Provider:</span>{' '}
+                      {aiReport.provider_used}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Alias:</span> {aiReport.alias_used}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Créditos:</span>{' '}
+                      {aiReport.platform_credits_active ? '✅' : '❌'}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Visão:</span>{' '}
+                      {aiReport.vision_capability_verified ? '✅' : '❌'}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Causa raiz:</p>
+                    <p className="text-muted-foreground">{aiReport.root_cause}</p>
+                  </div>
+                  {aiReport.recommendations.length > 0 && (
+                    <div>
+                      <p className="font-semibold">Recomendações:</p>
+                      <ul className="list-disc pl-5 text-muted-foreground">
+                        {aiReport.recommendations.map((r, i) => (
+                          <li key={i}>{r}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
-        </>
-      )}
+        </TabsContent>
 
-      {!report && !loading && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-            <Stethoscope className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              Clique em "Executar Diagnóstico" para verificar a integração de IA, incluindo testes
-              de texto e visão.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="conn" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wifi className="h-5 w-5" /> Teste de Conexão
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Testa conectividade básica com o AI Gateway.
+              </p>
+              <Button onClick={handleConnTest} disabled={connLoading}>
+                {connLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Testando...
+                  </>
+                ) : (
+                  'Testar Conexão'
+                )}
+              </Button>
+              {connError && <p className="text-sm text-red-500">{connError}</p>}
+              {connResult && (
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        connResult.success ? 'font-bold text-green-600' : 'font-bold text-red-600'
+                      }
+                    >
+                      {connResult.success ? '✅ Sucesso' : '❌ Falha'}
+                    </span>
+                  </div>
+                  <p>{connResult.message}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-muted-foreground">Tempo:</span>{' '}
+                      {connResult.response_time_ms}ms
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Modelo:</span>{' '}
+                      {connResult.model_used || '—'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

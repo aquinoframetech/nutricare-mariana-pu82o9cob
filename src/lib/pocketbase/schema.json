@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-13T23:36:58.103Z",
+  "generatedAt": "2026-07-13T23:37:34.913Z",
   "collections": [
     {
       "name": "users",
@@ -29,29 +29,21 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "role",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "patient",
-            "nutritionist"
-          ]
+          "selectValues": ["patient", "nutritionist"]
         }
       ],
       "indexes": [
@@ -143,30 +135,21 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "gender",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "masculino",
-            "feminino",
-            "outro"
-          ]
+          "selectValues": ["masculino", "feminino", "outro"]
         },
         {
           "name": "birth_date",
@@ -215,24 +198,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_nutri_profiles_user ON nutritionist_profiles (user_id)"
-      ]
+      "indexes": ["CREATE INDEX idx_nutri_profiles_user ON nutritionist_profiles (user_id)"]
     },
     {
       "name": "meals",
@@ -299,19 +275,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "ai_food_identified",
@@ -471,24 +442,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_meal_photos_meal ON meal_photos (meal_id)"
-      ]
+      "indexes": ["CREATE INDEX idx_meal_photos_meal ON meal_photos (meal_id)"]
     },
     {
       "name": "alerts",
@@ -531,24 +495,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_alerts_patient ON alerts (patient_id)"
-      ]
+      "indexes": ["CREATE INDEX idx_alerts_patient ON alerts (patient_id)"]
     },
     {
       "name": "calorie_logs",
@@ -585,24 +542,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_calorie_logs_patient_date ON calorie_logs (patient_id, date)"
-      ]
+      "indexes": ["CREATE INDEX idx_calorie_logs_patient_date ON calorie_logs (patient_id, date)"]
     },
     {
       "name": "macro_logs",
@@ -651,24 +601,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_macro_logs_patient_date ON macro_logs (patient_id, date)"
-      ]
+      "indexes": ["CREATE INDEX idx_macro_logs_patient_date ON macro_logs (patient_id, date)"]
     },
     {
       "name": "professional_notes",
@@ -706,24 +649,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_notes_patient ON professional_notes (patient_id)"
-      ]
+      "indexes": ["CREATE INDEX idx_notes_patient ON professional_notes (patient_id)"]
     },
     {
       "name": "reports",
@@ -766,24 +702,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_reports_patient ON reports (patient_id)"
-      ]
+      "indexes": ["CREATE INDEX idx_reports_patient ON reports (patient_id)"]
     },
     {
       "name": "chatgpt_analysis_logs",
@@ -826,19 +755,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "model_used",
@@ -902,9 +826,7 @@
           "system": false
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_analysis_logs_user ON chatgpt_analysis_logs (user_id)"
-      ]
+      "indexes": ["CREATE INDEX idx_analysis_logs_user ON chatgpt_analysis_logs (user_id)"]
     },
     {
       "name": "access_logs",
@@ -942,19 +864,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -1004,24 +921,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_meal_edit_logs_meal ON meal_edit_logs (meal_id)"
-      ]
+      "indexes": ["CREATE INDEX idx_meal_edit_logs_meal ON meal_edit_logs (meal_id)"]
     },
     {
       "name": "analysis_profiling_logs",
@@ -1089,12 +999,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "frontend",
-            "backend",
-            "openai",
-            "unknown"
-          ]
+          "selectValues": ["frontend", "backend", "openai", "unknown"]
         },
         {
           "name": "ts_request_received",
@@ -1155,19 +1060,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -1203,13 +1103,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "pending",
-            "processing",
-            "completed",
-            "retry_scheduled",
-            "failed"
-          ]
+          "selectValues": ["pending", "processing", "completed", "retry_scheduled", "failed"]
         },
         {
           "name": "attempts",
@@ -1258,19 +1152,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
