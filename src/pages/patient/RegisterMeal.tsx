@@ -270,11 +270,20 @@ export default function RegisterMeal() {
       return
     }
 
+    let patientId = ''
+    try {
+      const patient = await pb.collection('patients').getFirstListItem(`user_id="${user.id}"`)
+      patientId = patient.id
+    } catch {
+      setErrorMessage({ title: 'Perfil de paciente não encontrado.', icon: 'auth' })
+      return
+    }
+
     const crid = clientRequestId || crypto.randomUUID()
     if (!clientRequestId) setClientRequestId(crid)
     setIsSubmitting(true)
     try {
-      const result = await submitMealAnalysis(file, description || 'Refeição', crid)
+      const result = await submitMealAnalysis(file, description || 'Refeição', crid, patientId)
       if (result.meal_id) {
         setMealId(result.meal_id)
         toast({ title: 'Refeição enviada com sucesso!' })

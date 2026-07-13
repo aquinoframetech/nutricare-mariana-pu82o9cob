@@ -21,6 +21,20 @@ onRecordAfterCreateSuccess((e) => {
       $app.save(meal)
     }
 
+    var fsys = $app.newFilesystem()
+    var fileExists = false
+    try {
+      var fileKey = photo.baseFilesPath() + '/' + filename
+      fileExists = fsys.exists(fileKey)
+    } finally {
+      fsys.close()
+    }
+
+    if (!fileExists) {
+      $app.logger().error('on_meal_photo_create: file not in storage', 'meal_id', mealId)
+      return e.next()
+    }
+
     var requestId = $security.randomString(32)
 
     try {

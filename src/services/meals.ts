@@ -71,10 +71,12 @@ export const submitMealAnalysis = async (
   file: File,
   name: string,
   clientRequestId: string,
+  patientId: string,
 ): Promise<{ request_id: string; meal_id: string; job_id: string; status: string }> => {
   const formData = new FormData()
   formData.append('image', file)
-  formData.append('name', name)
+  formData.append('description', name)
+  formData.append('patient_id', patientId)
   formData.append('client_request_id', clientRequestId)
   return await pb.send('/backend/v1/meals/analyze', {
     method: 'POST',
