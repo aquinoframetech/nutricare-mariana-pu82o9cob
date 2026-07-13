@@ -150,7 +150,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const signOut = () => {
-    pb.authStore.clear()
+    try {
+      pb.authStore.clear()
+    } catch (err) {
+      console.error('[NutriCare Auth Error] signOut', err)
+    }
   }
 
   return (

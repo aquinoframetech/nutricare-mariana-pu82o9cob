@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,7 @@ import { mapSignInError } from '@/lib/auth-errors'
 import { Utensils } from 'lucide-react'
 
 export default function Login() {
-  const { signIn, isAuthenticated, user } = useAuth()
+  const { signIn, isAuthenticated, user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,16 +18,28 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(user.role === 'patient' ? '/patient' : '/nutri')
+      navigate(user.role === 'patient' ? '/patient' : '/nutri', { replace: true })
     }
   }, [isAuthenticated, user, navigate])
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Carregando...</div>
+      </div>
+    )
+  }
+
+  if (isAuthenticated && user) {
+    return <Navigate to={user.role === 'patient' ? '/patient' : '/nutri'} replace />
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error, message } = await signIn(email, password)
-    if (error) setError(message || mapSignInError(error))
+    const { error: signInError, message } = await signIn(email, password)
+    if (signInError) setError(message || mapSignInError(signInError))
     setLoading(false)
   }
 

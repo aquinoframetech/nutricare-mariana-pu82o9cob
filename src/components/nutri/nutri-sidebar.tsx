@@ -1,5 +1,13 @@
-import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, Bell, LogOut, MessageCircle } from 'lucide-react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  Users,
+  Bell,
+  LogOut,
+  MessageCircle,
+  Stethoscope,
+  Activity,
+} from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -11,17 +19,40 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from '@/components/ui/sidebar'
 import { useAuth } from '@/hooks/use-auth'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 export function NutriSidebar() {
   const { signOut, user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
   const navItems = [
-    { title: 'Visão Geral', url: '/nutri', icon: LayoutDashboard },
-    { title: 'Meus Pacientes', url: '/nutri/patients', icon: Users },
-    { title: 'Alertas', url: '/nutri/alerts', icon: Bell },
-    { title: 'Chat IA', url: '/nutri/chat', icon: MessageCircle },
+    { title: 'Visão Geral', url: '/nutri', icon: LayoutDashboard, end: true },
+    { title: 'Meus Pacientes', url: '/nutri/patients', icon: Users, end: false },
+    { title: 'Alertas', url: '/nutri/alerts', icon: Bell, end: false },
+    { title: 'Chat IA', url: '/nutri/chat', icon: MessageCircle, end: false },
   ]
+
+  const diagnosticItems = [
+    { title: 'Diagnóstico IA', url: '/nutri/diagnostic', icon: Stethoscope, end: false },
+    { title: 'Worker Status', url: '/nutri/worker-diagnostic', icon: Activity, end: false },
+  ]
+
+  const isActiveRoute = (url: string, end: boolean) =>
+    end ? location.pathname === url : location.pathname.startsWith(url)
+
+  const handleLogout = () => {
+    try {
+      signOut()
+      navigate('/', { replace: true })
+    } catch {
+      toast.error('Erro ao sair. Tente novamente.')
+    }
+  }
 
   return (
     <Sidebar>
@@ -43,10 +74,34 @@ export function NutriSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end={item.url === '/nutri'}
-                      className={({ isActive }) =>
-                        isActive ? 'bg-muted font-medium text-primary' : ''
-                      }
+                      end={item.end}
+                      className={cn(
+                        isActiveRoute(item.url, item.end) && 'bg-muted font-medium text-primary',
+                      )}
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarSeparator />
+        <SidebarGroup>
+          <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {diagnosticItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.url}
+                      end={item.end}
+                      className={cn(
+                        isActiveRoute(item.url, item.end) && 'bg-muted font-medium text-primary',
+                      )}
                     >
                       <item.icon />
                       <span>{item.title}</span>
@@ -60,7 +115,11 @@ export function NutriSidebar() {
       </SidebarContent>
       <SidebarFooter className="p-4 border-t">
         <div className="flex items-center gap-3 mb-4">
-          <img src={user?.avatar} alt={user?.name} className="w-10 h-10 rounded-full bg-muted" />
+          <img
+            src={user?.avatar || `https://img.usecurling.com/ppl/thumbnail`}
+            alt={user?.name}
+            className="w-10 h-10 rounded-full bg-muted object-cover"
+          />
           <div className="flex flex-col">
             <span className="text-sm font-medium">{user?.name}</span>
             <span className="text-xs text-muted-foreground">Nutricionista</span>
@@ -69,7 +128,7 @@ export function NutriSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={signOut}
+              onClick={handleLogout}
               className="text-destructive hover:text-destructive"
             >
               <LogOut />

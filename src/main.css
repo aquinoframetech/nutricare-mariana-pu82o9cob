@@ -93,6 +93,10 @@
 }
 
 @layer utilities {
+  .pointer-events-auto-important {
+    pointer-events: auto !important;
+  }
+
   @keyframes scan {
     0% {
       top: 0;
