@@ -2,6 +2,22 @@ routerAdd(
   'POST',
   '/backend/v1/analyze-meal-sync',
   (e) => {
+    var toBase64 = function (data) {
+      var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+      var result = ''
+      var len = data.length
+      for (var i = 0; i < len; i += 3) {
+        var a = data.charCodeAt(i) & 0xff
+        var b = i + 1 < len ? data.charCodeAt(i + 1) & 0xff : 0
+        var c = i + 2 < len ? data.charCodeAt(i + 2) & 0xff : 0
+        result += chars[a >> 2]
+        result += chars[((a & 3) << 4) | (b >> 4)]
+        result += i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '='
+        result += i + 2 < len ? chars[c & 63] : '='
+      }
+      return result
+    }
+
     try {
       const body = e.requestInfo().body || {}
       const mealId = body.meal_id
@@ -30,11 +46,30 @@ routerAdd(
       if (photos.length > 0) {
         const p = photos[0]
         const fileName = p.getString('image')
-        let baseUrl = $secrets.get('PB_INSTANCE_URL')
-        if (!baseUrl) baseUrl = 'https://nutricare-mariana-aa9e0.shrd00.internal.goskip.dev'
-        if (baseUrl && fileName) {
+        if (fileName) {
+          let baseUrl = $secrets.get('PB_INSTANCE_URL')
+          if (!baseUrl) baseUrl = 'https://nutricare-mariana-aa9e0.shrd00.internal.goskip.dev'
+          var superuserToken = $secrets.get('PB_SUPERUSER_TOKEN') || ''
           const fileUrl = `${baseUrl}/api/files/${p.collectionId}/${p.id}/${fileName}`
-          userContent.push({ type: 'image_url', image_url: { url: fileUrl } })
+          var imgRes = null
+          try {
+            imgRes = $http.send({
+              url: fileUrl,
+              method: 'GET',
+              headers: superuserToken ? { Authorization: superuserToken } : {},
+              timeout: 30,
+            })
+          } catch (fetchErr) {
+            throw new Error('Image fetch transport error: ' + fetchErr.message)
+          }
+          if (imgRes.statusCode !== 200 || !imgRes.body || imgRes.body.length === 0) {
+            throw new Error('Failed to retrieve image file: HTTP ' + imgRes.statusCode)
+          }
+          var ext = fileName.split('.').pop().toLowerCase()
+          var mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+          var base64Data = toBase64(imgRes.body)
+          var dataUrl = 'data:' + mimeType + ';base64,' + base64Data
+          userContent.push({ type: 'image_url', image_url: { url: dataUrl } })
         }
       }
 

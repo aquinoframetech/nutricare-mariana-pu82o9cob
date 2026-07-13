@@ -35,7 +35,7 @@ import { useLocation } from 'react-router-dom'
 import { getMealPhotos, getMealPhotoUrl } from '@/services/meals'
 
 const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_FILE_SIZE = 15 * 1024 * 1024 // Increased size to allow camera photos before compression
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // Aligned with meal_photos collection maxSize (5242880 bytes)
 
 function validateFile(file: File): string | null {
   if (!file.type.startsWith('image/')) {
@@ -45,7 +45,7 @@ function validateFile(file: File): string | null {
     return 'Formato não suportado. Use JPG, PNG ou WebP.'
   }
   if (file.size > MAX_FILE_SIZE) {
-    return 'Imagem muito grande. O tamanho máximo é 15MB.'
+    return 'Imagem muito grande. O tamanho máximo é 5MB.'
   }
   if (file.size < 1024) {
     return 'Imagem muito pequena. O arquivo pode estar corrompido.'
