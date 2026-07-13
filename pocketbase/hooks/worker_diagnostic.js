@@ -12,7 +12,7 @@ routerAdd(
     if (role !== 'nutritionist') return e.forbiddenError('only nutritionists can run diagnostics')
 
     var report = {
-      worker_version_expected: 'vision-fix-2026-07-12-v1',
+      worker_version_expected: 'vision-fix-2026-07-13-v2',
       worker_version_found: '',
       queue_items: [],
       meal_states: [],

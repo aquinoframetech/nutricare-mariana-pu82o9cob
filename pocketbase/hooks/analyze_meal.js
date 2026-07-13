@@ -2,20 +2,14 @@ routerAdd(
   'POST',
   '/backend/v1/analyze-meal-sync',
   (e) => {
-    var bytesToBase64Fixed = function (bytes) {
+    function bytesToBase64Safe(bytes) {
       var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
       var result = ''
       var len = bytes.length
-      var getByte = function (i) {
-        if (typeof bytes.charCodeAt === 'function') {
-          return bytes.charCodeAt(i) & 0xff
-        }
-        return bytes[i] & 0xff
-      }
       for (var i = 0; i < len; i += 3) {
-        var a = getByte(i)
-        var b = i + 1 < len ? getByte(i + 1) : 0
-        var c = i + 2 < len ? getByte(i + 2) : 0
+        var a = bytes[i] & 0xff
+        var b = i + 1 < len ? bytes[i + 1] & 0xff : 0
+        var c = i + 2 < len ? bytes[i + 2] & 0xff : 0
         result += chars[a >> 2]
         result += chars[((a & 3) << 4) | (b >> 4)]
         result += i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '='
@@ -24,28 +18,22 @@ routerAdd(
       return result
     }
 
-    var detectImageMime = function (fileName, bytes) {
-      var getByte = function (i) {
-        if (typeof bytes.charCodeAt === 'function') {
-          return bytes.charCodeAt(i) & 0xff
-        }
-        return bytes[i] & 0xff
-      }
+    function detectImageMime(fileName, bytes) {
       var len = bytes.length
       if (len >= 4) {
-        var b0 = getByte(0),
-          b1 = getByte(1),
-          b2 = getByte(2),
-          b3 = getByte(3)
+        var b0 = bytes[0] & 0xff,
+          b1 = bytes[1] & 0xff,
+          b2 = bytes[2] & 0xff,
+          b3 = bytes[3] & 0xff
         if (b0 === 0x89 && b1 === 0x50 && b2 === 0x4e && b3 === 0x47) return 'image/png'
         if (b0 === 0xff && b1 === 0xd8 && b2 === 0xff) return 'image/jpeg'
         if (b0 === 0x47 && b1 === 0x49 && b2 === 0x46 && b3 === 0x38) return 'image/gif'
         if (b0 === 0x52 && b1 === 0x49 && b2 === 0x46 && b3 === 0x46 && len >= 12) {
           if (
-            getByte(8) === 0x57 &&
-            getByte(9) === 0x45 &&
-            getByte(10) === 0x42 &&
-            getByte(11) === 0x50
+            (bytes[8] & 0xff) === 0x57 &&
+            (bytes[9] & 0xff) === 0x45 &&
+            (bytes[10] & 0xff) === 0x42 &&
+            (bytes[11] & 0xff) === 0x50
           )
             return 'image/webp'
         }
@@ -59,79 +47,88 @@ routerAdd(
     }
 
     try {
-      const body = e.requestInfo().body || {}
-      const mealId = body.meal_id
-      if (!mealId) {
-        return e.badRequestError('meal_id is required')
-      }
+      var body = e.requestInfo().body || {}
+      var mealId = body.meal_id
+      if (!mealId) return e.badRequestError('meal_id is required')
 
-      const meal = $app.findRecordById('meals', mealId)
-      if (!meal) {
-        return e.notFoundError('meal not found')
-      }
+      var meal = $app.findRecordById('meals', mealId)
+      if (!meal) return e.notFoundError('meal not found')
 
-      const mealName = meal.getString('name')
-      const aiInput = mealName ? `Refeição: ${mealName}` : 'Refeição sem nome'
+      var mealName = meal.getString('name')
+      var aiInput = mealName
+        ? 'Refeição: ' + mealName
+        : 'Refeição sem nome, por favor analise a imagem.'
 
-      const photos = $app.findRecordsByFilter(
+      var photos = $app.findRecordsByFilter(
         'meal_photos',
-        `meal_id = '${mealId}'`,
+        "meal_id = '" + mealId + "'",
         '-created',
         1,
         0,
       )
-      let userContent = []
-      userContent.push({ type: 'text', text: aiInput })
-
+      var userContent = [{ type: 'text', text: aiInput }]
       var hasImageContent = false
+
+      if (photos.length === 0) {
+        throw new Error('IMAGE_PREPARATION_FAILED: no photo linked to meal')
+      }
+
       if (photos.length > 0) {
-        const p = photos[0]
-        const fileName = p.getString('image')
+        var p = photos[0]
+        var fileName = p.getString('image')
         if (fileName) {
-          var fileKey = p.baseFilesPath() + '/' + fileName
-          var fsys = $app.newFilesystem()
+          var fsys = null
           var reader = null
           try {
+            var fileKey = p.baseFilesPath() + '/' + fileName
+            fsys = $app.newFilesystem()
+
             if (!fsys.exists(fileKey)) {
-              throw new Error('Image file not found in storage: ' + fileKey)
+              throw new Error('IMAGE_PREPARATION_FAILED: file not found in storage: ' + fileKey)
             }
 
             reader = fsys.getReader(fileKey)
-            var imgChunks = []
-            var imgTotalLen = 0
             var maxBytes = 10 * 1024 * 1024
+            var chunks = []
+            var totalBytes = 0
             var readBuf = new Uint8Array(8192)
 
             while (true) {
-              var bytesRead
+              var bytesRead = 0
               try {
                 bytesRead = reader.read(readBuf)
               } catch (readEx) {
                 break
               }
               if (!bytesRead || bytesRead <= 0) break
-              imgTotalLen += bytesRead
-              if (imgTotalLen > maxBytes) {
-                throw new Error('Image exceeds 10MB safety limit')
+              totalBytes += bytesRead
+              if (totalBytes > maxBytes) {
+                throw new Error('IMAGE_PREPARATION_FAILED: image exceeds 10MB safety limit')
               }
-              var chunkStr = ''
               for (var bi = 0; bi < bytesRead; bi++) {
-                chunkStr += String.fromCharCode(readBuf[bi])
+                chunks.push(readBuf[bi])
               }
-              imgChunks.push(chunkStr)
             }
 
-            var imgBytes = imgChunks.join('')
-            if (imgBytes.length === 0) {
-              throw new Error('Image file is empty after reading from storage')
+            if (totalBytes === 0) {
+              throw new Error('IMAGE_EMPTY: 0 bytes read from storage')
             }
 
+            var imgBytes = new Uint8Array(chunks)
             var imgSizeBytes = imgBytes.length
             var mimeType = detectImageMime(fileName, imgBytes)
-            var base64Img = bytesToBase64Fixed(imgBytes)
 
+            if (
+              mimeType !== 'image/png' &&
+              mimeType !== 'image/jpeg' &&
+              mimeType !== 'image/webp'
+            ) {
+              throw new Error('UNSUPPORTED_MIME: ' + mimeType)
+            }
+
+            var base64Img = bytesToBase64Safe(imgBytes)
             if (!base64Img || base64Img.length === 0) {
-              throw new Error('Base64 encoding produced empty result')
+              throw new Error('IMAGE_PREPARATION_FAILED: base64 encoding produced empty result')
             }
 
             var dataUrl = 'data:' + mimeType + ';base64,' + base64Img
@@ -141,70 +138,74 @@ routerAdd(
             $app
               .logger()
               .info(
-                'analyze_meal image processed',
+                'ANALYZE_MEAL_IMAGE_PROCESSED',
+                'request_id',
+                'SYNC_' + mealId,
                 'meal_id',
                 mealId,
                 'file_name',
                 fileName,
+                'mime',
+                mimeType,
                 'image_size_bytes',
                 imgSizeBytes,
                 'base64_length',
                 base64Img.length,
-                'mime',
-                mimeType,
+                'content_parts',
+                userContent.length,
               )
           } catch (imgErr) {
             throw imgErr
           } finally {
-            if (reader) {
-              try {
-                reader.close()
-              } catch (_) {}
-            }
             try {
-              fsys.close()
+              if (reader) reader.close()
+            } catch (_) {}
+            try {
+              if (fsys) fsys.close()
             } catch (_) {}
           }
         }
       }
+
       if (photos.length > 0 && !hasImageContent) {
         throw new Error(
-          'IMAGE_NOT_ATTACHED_TO_AI_REQUEST: photos found but no image content was prepared for the AI call',
+          'IMAGE_PREPARATION_FAILED: photos found but no image content was prepared for the AI call',
         )
       }
 
-      const aiResult = $ai.chat({
+      if (userContent.length !== 2) {
+        throw new Error(
+          'IMAGE_PREPARATION_FAILED: userContent must have exactly 2 parts (text + image), got ' +
+            userContent.length,
+        )
+      }
+
+      var aiResult = $ai.chat({
         model: 'fast',
         messages: [
           {
             role: 'system',
-            content: `Você é um nutricionista. Analise a refeição e retorne uma estimativa nutricional no formato JSON.
-Chaves obrigatórias:
-{
-  "ai_food_identified": "string",
-  "ai_description": "string",
-  "ai_confidence": 90,
-  "calories": 250,
-  "proteins": 10,
-  "carbs": 20,
-  "fats": 5,
-  "fibers": 2,
-  "sodium": 100,
-  "ai_notes": "string"
-}`,
+            content:
+              'Você é um nutricionista. Analise a refeição na imagem e retorne uma estimativa nutricional no formato JSON.\nChaves obrigatórias:\n{\n  "ai_food_identified": "string (nome do alimento identificado visualmente)",\n  "ai_description": "string",\n  "ai_confidence": 90,\n  "calories": 250,\n  "proteins": 10,\n  "carbs": 20,\n  "fats": 5,\n  "fibers": 2,\n  "sodium": 100,\n  "ai_notes": "string"\n}',
           },
-          {
-            role: 'user',
-            content: userContent,
-          },
+          { role: 'user', content: userContent },
         ],
         response_format: { type: 'json_object' },
       })
 
-      const content = aiResult.choices[0].message.content
-      const parsed = JSON.parse(content)
+      var content = aiResult.choices[0].message.content
+      var parsed = JSON.parse(content)
 
-      meal.set('ai_food_identified', parsed.ai_food_identified || 'Não identificado')
+      var foodIdentified = (parsed.ai_food_identified || '').trim()
+      if (
+        !foodIdentified ||
+        foodIdentified.toLowerCase() === 'não identificado' ||
+        foodIdentified.toLowerCase() === 'nao identificado'
+      ) {
+        throw new Error('VISUAL_CONFIRMATION_FAILED: AI did not identify food from image')
+      }
+
+      meal.set('ai_food_identified', foodIdentified)
       meal.set('ai_description', parsed.ai_description || '')
       meal.set('ai_confidence', parsed.ai_confidence || 70)
       meal.set('calories', parsed.calories || 0)
@@ -214,9 +215,26 @@ Chaves obrigatórias:
       meal.set('fibers', parsed.fibers || 0)
       meal.set('sodium', parsed.sodium || 0)
       meal.set('ai_notes', parsed.ai_notes || '')
+      meal.set(
+        'ai_estimated_values',
+        JSON.stringify({
+          ai_food_identified: foodIdentified,
+          ai_description: parsed.ai_description || '',
+          ai_confidence: parsed.ai_confidence || 70,
+          calories: parsed.calories || 0,
+          proteins: parsed.proteins || 0,
+          carbs: parsed.carbs || 0,
+          fats: parsed.fats || 0,
+          fibers: parsed.fibers || 0,
+          sodium: parsed.sodium || 0,
+          ai_notes: parsed.ai_notes || '',
+        }),
+      )
+      meal.set('ai_raw_response', JSON.stringify(parsed))
+      meal.set('ai_model', 'fast')
+      meal.set('analysis_version', 'v2')
       meal.set('analysis_status', 'awaiting_confirmation')
       meal.set('analyzed_at', new Date().toISOString())
-
       $app.save(meal)
 
       return e.json(200, { success: true, meal: meal.id })
@@ -256,10 +274,7 @@ Chaves obrigatórias:
       } catch (_) {}
 
       $app.logger().error('analyze_meal error', 'msg', aErrMsg, 'status', aStatus)
-      return e.json(aStatus >= 500 ? 502 : aStatus, {
-        error: aErrMsg,
-        provider_status: aStatus,
-      })
+      return e.json(aStatus >= 500 ? 502 : aStatus, { error: aErrMsg, provider_status: aStatus })
     }
   },
   $apis.requireAuth(),

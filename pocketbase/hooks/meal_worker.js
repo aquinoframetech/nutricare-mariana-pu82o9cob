@@ -1,5 +1,5 @@
 cronAdd('process_meal_queue', '*/1 * * * *', () => {
-  var WORKER_VERSION = 'vision-fix-2026-07-12-v1'
+  var WORKER_VERSION = 'vision-fix-2026-07-13-v2'
 
   $app
     .logger()
@@ -11,27 +11,75 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
       new Date().toISOString(),
     )
 
-  function bytesToBase64(bytes) {
-    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
-    var base64 = ''
-    var i = 0
-    while (i < bytes.length) {
-      var b0 = bytes[i++]
-      var b1 = i < bytes.length ? bytes[i++] : 0
-      var b2 = i < bytes.length ? bytes[i++] : 0
-
-      var encoded1 = chars.charAt(b0 >> 2)
-      var encoded2 = chars.charAt(((b0 & 3) << 4) | (b1 >> 4))
-      var encoded3 = chars.charAt(((b1 & 15) << 2) | (b2 >> 6))
-      var encoded4 = chars.charAt(b2 & 63)
-
-      if (i - 1 >= bytes.length) encoded3 = '='
-      if (i >= bytes.length) encoded4 = '='
-
-      base64 += encoded1 + encoded2 + encoded3 + encoded4
+  function bytesToBase64Safe(bytes) {
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    var result = ''
+    var len = bytes.length
+    for (var i = 0; i < len; i += 3) {
+      var a = bytes[i] & 0xff
+      var b = i + 1 < len ? bytes[i + 1] & 0xff : 0
+      var c = i + 2 < len ? bytes[i + 2] & 0xff : 0
+      result += chars[a >> 2]
+      result += chars[((a & 3) << 4) | (b >> 4)]
+      result += i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '='
+      result += i + 2 < len ? chars[c & 63] : '='
     }
-    return base64
+    return result
   }
+
+  function detectImageMime(fileName, bytes) {
+    var len = bytes.length
+    if (len >= 4) {
+      var b0 = bytes[0] & 0xff,
+        b1 = bytes[1] & 0xff,
+        b2 = bytes[2] & 0xff,
+        b3 = bytes[3] & 0xff
+      if (b0 === 0x89 && b1 === 0x50 && b2 === 0x4e && b3 === 0x47) return 'image/png'
+      if (b0 === 0xff && b1 === 0xd8 && b2 === 0xff) return 'image/jpeg'
+      if (b0 === 0x47 && b1 === 0x49 && b2 === 0x46 && b3 === 0x38) return 'image/gif'
+      if (b0 === 0x52 && b1 === 0x49 && b2 === 0x46 && b3 === 0x46 && len >= 12) {
+        if (
+          (bytes[8] & 0xff) === 0x57 &&
+          (bytes[9] & 0xff) === 0x45 &&
+          (bytes[10] & 0xff) === 0x42 &&
+          (bytes[11] & 0xff) === 0x50
+        )
+          return 'image/webp'
+      }
+    }
+    var ext = (fileName || '').split('.').pop().toLowerCase()
+    if (ext === 'png') return 'image/png'
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+    if (ext === 'webp') return 'image/webp'
+    if (ext === 'gif') return 'image/gif'
+    return 'image/jpeg'
+  }
+
+  function isTransientError(status, errMsg) {
+    if (status === 429 || status >= 500) return true
+    var lower = (errMsg || '').toLowerCase()
+    if (lower.indexOf('timeout') >= 0) return true
+    if (lower.indexOf('network') >= 0) return true
+    if (lower.indexOf('connection') >= 0) return true
+    if (lower.indexOf('eof') >= 0) return true
+    return false
+  }
+
+  function isPermanentError(errMsg) {
+    var upper = (errMsg || '').toUpperCase()
+    if (upper.indexOf('IMAGE_EMPTY') >= 0) return true
+    if (upper.indexOf('IMAGE_PREPARATION_FAILED') >= 0) return true
+    if (upper.indexOf('UNSUPPORTED_MIME') >= 0) return true
+    return false
+  }
+
+  function calculateBackoffMs(attempts) {
+    var delays = [60000, 300000, 900000, 3600000, 7200000]
+    var idx = Math.min(attempts - 1, delays.length - 1)
+    return delays[idx]
+  }
+
+  var MAX_ATTEMPTS = 5
 
   try {
     var pending = $app.findRecordsByFilter(
@@ -46,9 +94,7 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
       var record = pending[i]
       var requestId = record.getString('request_id') || 'REQ_' + $security.randomString(8)
       var mealId = record.getString('meal_id')
-
       var tsStart = new Date().getTime()
-
       var tImgVal = 0,
         tAiReq = 0,
         tParse = 0,
@@ -83,7 +129,7 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         var mealName = meal.getString('name')
         var aiInput = mealName
           ? 'Refeição: ' + mealName
-          : 'Refeição sem nome, por favor analise a imagem se disponível.'
+          : 'Refeição sem nome, por favor analise a imagem.'
 
         t0 = new Date().getTime()
         var photos = $app.findRecordsByFilter(
@@ -99,16 +145,26 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         var userContent = [{ type: 'text', text: aiInput }]
         var hasImageContent = false
 
+        if (photos.length === 0) {
+          throw new Error('IMAGE_PREPARATION_FAILED: no photo linked to meal')
+        }
+
         if (photos.length > 0) {
           var p = photos[0]
           var fileName = p.getString('image')
 
           if (fileName) {
+            var fsys = null
+            var reader = null
             try {
               var fileKey = p.baseFilesPath() + '/' + fileName
-              var fsys = $app.newFilesystem()
-              var reader = fsys.getReader(fileKey)
+              fsys = $app.newFilesystem()
 
+              if (!fsys.exists(fileKey)) {
+                throw new Error('IMAGE_PREPARATION_FAILED: file not found in storage: ' + fileKey)
+              }
+
+              reader = fsys.getReader(fileKey)
               var maxBytes = 10 * 1024 * 1024
               var chunks = []
               var totalBytes = 0
@@ -127,31 +183,73 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
                 }
                 totalBytes += bytesRead
                 if (totalBytes > maxBytes) {
-                  throw new Error('Image exceeds 10MB safety limit')
+                  throw new Error('IMAGE_PREPARATION_FAILED: image exceeds 10MB safety limit')
                 }
               }
 
               if (totalBytes === 0) {
-                throw new Error('Image file is empty after reading from storage')
+                throw new Error('IMAGE_EMPTY: 0 bytes read from storage')
               }
 
               var imgBytes = new Uint8Array(chunks)
               var imgSizeBytes = imgBytes.length
               imgSizeKb = Math.round(imgSizeBytes / 1024)
 
-              var base64Img = bytesToBase64(imgBytes)
+              var mimeType = detectImageMime(fileName, imgBytes)
 
-              var mimeType = 'image/jpeg'
-              if (fileName.toLowerCase().endsWith('.png')) mimeType = 'image/png'
-              else if (fileName.toLowerCase().endsWith('.webp')) mimeType = 'image/webp'
+              if (
+                mimeType !== 'image/png' &&
+                mimeType !== 'image/jpeg' &&
+                mimeType !== 'image/webp'
+              ) {
+                throw new Error('UNSUPPORTED_MIME: ' + mimeType)
+              }
+
+              var base64Img = bytesToBase64Safe(imgBytes)
+              if (!base64Img || base64Img.length === 0) {
+                throw new Error('IMAGE_PREPARATION_FAILED: base64 encoding produced empty result')
+              }
 
               var dataUrl = 'data:' + mimeType + ';base64,' + base64Img
               userContent.push({ type: 'image_url', image_url: { url: dataUrl } })
               hasImageContent = true
+
+              $app
+                .logger()
+                .info(
+                  'MEAL_WORKER_IMAGE_PROCESSED',
+                  'request_id',
+                  requestId,
+                  'meal_id',
+                  mealId,
+                  'file_name',
+                  fileName,
+                  'mime',
+                  mimeType,
+                  'image_size_bytes',
+                  imgSizeBytes,
+                  'base64_length',
+                  base64Img.length,
+                  'content_parts',
+                  userContent.length,
+                )
             } catch (imgErr) {
-              $app.logger().error('Failed to read image to base64', 'error', imgErr.message)
+              $app
+                .logger()
+                .error(
+                  'MEAL_WORKER_IMAGE_ERROR',
+                  'error',
+                  imgErr.message,
+                  'meal_id',
+                  mealId,
+                  'request_id',
+                  requestId,
+                )
               throw imgErr
             } finally {
+              try {
+                if (reader) reader.close()
+              } catch (_) {}
               try {
                 if (fsys) fsys.close()
               } catch (_) {}
@@ -161,9 +259,17 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
 
         if (photos.length > 0 && !hasImageContent) {
           throw new Error(
-            'IMAGE_NOT_ATTACHED_TO_AI_REQUEST: photos found but no image content was prepared for the AI call',
+            'IMAGE_PREPARATION_FAILED: photos found but no image content was prepared for the AI call',
           )
         }
+
+        if (userContent.length !== 2) {
+          throw new Error(
+            'IMAGE_PREPARATION_FAILED: userContent must have exactly 2 parts (text + image), got ' +
+              userContent.length,
+          )
+        }
+
         tImgVal = new Date().getTime() - t0
 
         t0 = new Date().getTime()
@@ -173,7 +279,7 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
             {
               role: 'system',
               content:
-                'Você é um nutricionista. Analise a refeição e retorne uma estimativa nutricional detalhada no formato JSON.\nChaves obrigatórias (todas numéricas devem ser number, e textos string):\n{\n  "ai_food_identified": "string (nome do alimento)",\n  "ai_description": "string (descrição breve)",\n  "ai_confidence": 90,\n  "calories": 250,\n  "proteins": 10,\n  "carbs": 20,\n  "fats": 5,\n  "fibers": 2,\n  "sodium": 100,\n  "ai_notes": "string (dicas ou observações)"\n}',
+                'Você é um nutricionista. Analise a refeição na imagem e retorne uma estimativa nutricional detalhada no formato JSON.\nChaves obrigatórias (todas numéricas devem ser number, e textos string):\n{\n  "ai_food_identified": "string (nome do alimento identificado visualmente)",\n  "ai_description": "string (descrição breve)",\n  "ai_confidence": 90,\n  "calories": 250,\n  "proteins": 10,\n  "carbs": 20,\n  "fats": 5,\n  "fibers": 2,\n  "sodium": 100,\n  "ai_notes": "string (dicas ou observações)"\n}',
             },
             { role: 'user', content: userContent },
           ],
@@ -188,8 +294,17 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         tParse = new Date().getTime() - t0
 
         t0 = new Date().getTime()
+        var foodIdentified = (parsed.ai_food_identified || '').trim()
+        if (
+          !foodIdentified ||
+          foodIdentified.toLowerCase() === 'não identificado' ||
+          foodIdentified.toLowerCase() === 'nao identificado'
+        ) {
+          throw new Error('VISUAL_CONFIRMATION_FAILED: AI did not identify food from image')
+        }
+
         var estimatedValues = {
-          ai_food_identified: parsed.ai_food_identified || 'Não identificado',
+          ai_food_identified: foodIdentified,
           ai_description: parsed.ai_description || '',
           ai_confidence: parsed.ai_confidence || 70,
           calories: parsed.calories || 0,
@@ -214,6 +329,7 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         meal.set('sodium', estimatedValues.sodium)
         meal.set('ai_notes', estimatedValues.ai_notes)
         meal.set('ai_estimated_values', JSON.stringify(estimatedValues))
+        meal.set('ai_raw_response', JSON.stringify(parsed))
         meal.set('ai_model', 'fast')
         meal.set('analysis_version', 'v2')
         meal.set('analysis_status', 'awaiting_confirmation')
@@ -233,7 +349,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
           try {
             profLog = $app.findFirstRecordByData('analysis_profiling_logs', 'request_id', requestId)
           } catch (_) {}
-
           if (!profLog) {
             var profCol = $app.findCollectionByNameOrId('analysis_profiling_logs')
             profLog = new Record(profCol)
@@ -260,22 +375,7 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
         }
       } catch (err) {
         var errMsg = err.message || 'unknown error'
-        var errStack = ''
-        var errType = ''
-        var errString = ''
-        try {
-          errStack = err.stack || ''
-        } catch (_) {}
-        try {
-          errType = err.constructor ? err.constructor.name || '' : ''
-        } catch (_) {}
-        try {
-          errString = String(err)
-        } catch (_) {}
 
-        if (errMsg.toLowerCase().indexOf('timeout') >= 0) {
-          timeoutSource = 'openai'
-        }
         if (typeof SkipAiError !== 'undefined' && err instanceof SkipAiError) {
           openaiStatus = err.status || 502
           if (errMsg.toLowerCase().indexOf('timeout') >= 0) timeoutSource = 'openai'
@@ -283,11 +383,54 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
           openaiStatus = 503
         }
 
+        var permanent = isPermanentError(errMsg)
+        var transient = !permanent && isTransientError(openaiStatus, errMsg)
+        var currentAttempts = record.getInt('attempts')
+
         try {
-          record.set('status', 'failed')
-          record.set('error_sanitized', errMsg)
-          record.set('finished_at', new Date().toISOString())
-          $app.save(record)
+          if (transient && currentAttempts < MAX_ATTEMPTS) {
+            var backoffMs = calculateBackoffMs(currentAttempts)
+            record.set('status', 'retry_scheduled')
+            record.set('next_retry_at', new Date(Date.now() + backoffMs).toISOString())
+            record.set('error_sanitized', errMsg)
+            record.set('finished_at', new Date().toISOString())
+            $app.saveNoValidate(record)
+            $app
+              .logger()
+              .info(
+                'MEAL_WORKER_RETRY_SCHEDULED',
+                'meal_id',
+                mealId,
+                'request_id',
+                requestId,
+                'attempts',
+                currentAttempts,
+                'next_retry_in_ms',
+                backoffMs,
+                'error',
+                errMsg,
+              )
+          } else {
+            record.set('status', 'failed')
+            record.set('error_sanitized', errMsg)
+            record.set('finished_at', new Date().toISOString())
+            $app.saveNoValidate(record)
+            $app
+              .logger()
+              .info(
+                'MEAL_WORKER_FAILED',
+                'meal_id',
+                mealId,
+                'request_id',
+                requestId,
+                'attempts',
+                currentAttempts,
+                'permanent',
+                permanent,
+                'error',
+                errMsg,
+              )
+          }
         } catch (queueSaveErr) {
           $app
             .logger()
@@ -318,6 +461,7 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
           errLog.set('original_error', errMsg)
           errLog.set('response_time_ms', new Date().getTime() - tsStart)
           errLog.set('estimated_cost', 0)
+          if (imgSizeKb) errLog.set('image_size_kb', imgSizeKb)
           $app.saveNoValidate(errLog)
         } catch (logErr3) {
           $app.logger().error('meal_worker chatgpt_analysis_logs error', 'msg', logErr3.message)
@@ -356,7 +500,6 @@ cronAdd('process_meal_queue', '*/1 * * * *', () => {
               requestId,
             )
           } catch (_) {}
-
           if (!profLogErr) {
             var profColErr = $app.findCollectionByNameOrId('analysis_profiling_logs')
             profLogErr = new Record(profColErr)

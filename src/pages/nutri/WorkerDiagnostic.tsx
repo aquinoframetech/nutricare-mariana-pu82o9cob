@@ -16,7 +16,7 @@ export default function WorkerDiagnosticPage() {
           <CardTitle className="text-sm">Expected Worker Version</CardTitle>
         </CardHeader>
         <CardContent>
-          <code className="rounded bg-muted px-2 py-1 text-sm">vision-fix-2026-07-12-v1</code>
+          <code className="rounded bg-muted px-2 py-1 text-sm">vision-fix-2026-07-13-v2</code>
           <p className="mt-2 text-xs text-muted-foreground">
             If the MEAL_WORKER_VERSION log appears with this version, the deployment is active. If
             it does not appear, the hook may not have reloaded properly.
