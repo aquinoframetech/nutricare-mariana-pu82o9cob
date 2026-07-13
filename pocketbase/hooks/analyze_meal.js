@@ -2,20 +2,60 @@ routerAdd(
   'POST',
   '/backend/v1/analyze-meal-sync',
   (e) => {
-    var toBase64 = function (data) {
+    var bytesToBase64Fixed = function (bytes) {
       var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
       var result = ''
-      var len = data.length
+      var len = bytes.length
+      var getByte = function (i) {
+        if (typeof bytes.charCodeAt === 'function') {
+          return bytes.charCodeAt(i) & 0xff
+        }
+        return bytes[i] & 0xff
+      }
       for (var i = 0; i < len; i += 3) {
-        var a = data.charCodeAt(i) & 0xff
-        var b = i + 1 < len ? data.charCodeAt(i + 1) & 0xff : 0
-        var c = i + 2 < len ? data.charCodeAt(i + 2) & 0xff : 0
+        var a = getByte(i)
+        var b = i + 1 < len ? getByte(i + 1) : 0
+        var c = i + 2 < len ? getByte(i + 2) : 0
         result += chars[a >> 2]
         result += chars[((a & 3) << 4) | (b >> 4)]
         result += i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '='
         result += i + 2 < len ? chars[c & 63] : '='
       }
       return result
+    }
+
+    var detectImageMime = function (fileName, bytes) {
+      var getByte = function (i) {
+        if (typeof bytes.charCodeAt === 'function') {
+          return bytes.charCodeAt(i) & 0xff
+        }
+        return bytes[i] & 0xff
+      }
+      var len = bytes.length
+      if (len >= 4) {
+        var b0 = getByte(0),
+          b1 = getByte(1),
+          b2 = getByte(2),
+          b3 = getByte(3)
+        if (b0 === 0x89 && b1 === 0x50 && b2 === 0x4e && b3 === 0x47) return 'image/png'
+        if (b0 === 0xff && b1 === 0xd8 && b2 === 0xff) return 'image/jpeg'
+        if (b0 === 0x47 && b1 === 0x49 && b2 === 0x46 && b3 === 0x38) return 'image/gif'
+        if (b0 === 0x52 && b1 === 0x49 && b2 === 0x46 && b3 === 0x46 && len >= 12) {
+          if (
+            getByte(8) === 0x57 &&
+            getByte(9) === 0x45 &&
+            getByte(10) === 0x42 &&
+            getByte(11) === 0x50
+          )
+            return 'image/webp'
+        }
+      }
+      var ext = (fileName || '').split('.').pop().toLowerCase()
+      if (ext === 'png') return 'image/png'
+      if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+      if (ext === 'webp') return 'image/webp'
+      if (ext === 'gif') return 'image/gif'
+      return 'image/jpeg'
     }
 
     try {
@@ -43,34 +83,94 @@ routerAdd(
       let userContent = []
       userContent.push({ type: 'text', text: aiInput })
 
+      var hasImageContent = false
       if (photos.length > 0) {
         const p = photos[0]
         const fileName = p.getString('image')
         if (fileName) {
-          let baseUrl = $secrets.get('PB_INSTANCE_URL')
-          if (!baseUrl) baseUrl = 'https://nutricare-mariana-aa9e0.shrd00.internal.goskip.dev'
-          var superuserToken = $secrets.get('PB_SUPERUSER_TOKEN') || ''
-          const fileUrl = `${baseUrl}/api/files/${p.collectionId}/${p.id}/${fileName}`
-          var imgRes = null
+          var fileKey = p.baseFilesPath() + '/' + fileName
+          var fsys = $app.newFilesystem()
+          var reader = null
           try {
-            imgRes = $http.send({
-              url: fileUrl,
-              method: 'GET',
-              headers: superuserToken ? { Authorization: superuserToken } : {},
-              timeout: 30,
-            })
-          } catch (fetchErr) {
-            throw new Error('Image fetch transport error: ' + fetchErr.message)
+            if (!fsys.exists(fileKey)) {
+              throw new Error('Image file not found in storage: ' + fileKey)
+            }
+
+            reader = fsys.getReader(fileKey)
+            var imgChunks = []
+            var imgTotalLen = 0
+            var maxBytes = 10 * 1024 * 1024
+            var readBuf = new Uint8Array(8192)
+
+            while (true) {
+              var bytesRead
+              try {
+                bytesRead = reader.read(readBuf)
+              } catch (readEx) {
+                break
+              }
+              if (!bytesRead || bytesRead <= 0) break
+              imgTotalLen += bytesRead
+              if (imgTotalLen > maxBytes) {
+                throw new Error('Image exceeds 10MB safety limit')
+              }
+              var chunkStr = ''
+              for (var bi = 0; bi < bytesRead; bi++) {
+                chunkStr += String.fromCharCode(readBuf[bi])
+              }
+              imgChunks.push(chunkStr)
+            }
+
+            var imgBytes = imgChunks.join('')
+            if (imgBytes.length === 0) {
+              throw new Error('Image file is empty after reading from storage')
+            }
+
+            var imgSizeBytes = imgBytes.length
+            var mimeType = detectImageMime(fileName, imgBytes)
+            var base64Img = bytesToBase64Fixed(imgBytes)
+
+            if (!base64Img || base64Img.length === 0) {
+              throw new Error('Base64 encoding produced empty result')
+            }
+
+            var dataUrl = 'data:' + mimeType + ';base64,' + base64Img
+            userContent.push({ type: 'image_url', image_url: { url: dataUrl } })
+            hasImageContent = true
+
+            $app
+              .logger()
+              .info(
+                'analyze_meal image processed',
+                'meal_id',
+                mealId,
+                'file_name',
+                fileName,
+                'image_size_bytes',
+                imgSizeBytes,
+                'base64_length',
+                base64Img.length,
+                'mime',
+                mimeType,
+              )
+          } catch (imgErr) {
+            throw imgErr
+          } finally {
+            if (reader) {
+              try {
+                reader.close()
+              } catch (_) {}
+            }
+            try {
+              fsys.close()
+            } catch (_) {}
           }
-          if (imgRes.statusCode !== 200 || !imgRes.body || imgRes.body.length === 0) {
-            throw new Error('Failed to retrieve image file: HTTP ' + imgRes.statusCode)
-          }
-          var ext = fileName.split('.').pop().toLowerCase()
-          var mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
-          var base64Data = toBase64(imgRes.body)
-          var dataUrl = 'data:' + mimeType + ';base64,' + base64Data
-          userContent.push({ type: 'image_url', image_url: { url: dataUrl } })
         }
+      }
+      if (photos.length > 0 && !hasImageContent) {
+        throw new Error(
+          'IMAGE_NOT_ATTACHED_TO_AI_REQUEST: photos found but no image content was prepared for the AI call',
+        )
       }
 
       const aiResult = $ai.chat({

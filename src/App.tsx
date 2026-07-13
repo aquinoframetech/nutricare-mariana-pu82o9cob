@@ -26,6 +26,7 @@ import PatientDetail from './pages/nutri/PatientDetail'
 import Alerts from './pages/nutri/Alerts'
 import NutriChat from './pages/nutri/Chat'
 import Diagnostic from './pages/nutri/Diagnostic'
+import WorkerDiagnostic from './pages/nutri/WorkerDiagnostic'
 
 const App = () => (
   <BrowserRouter>
@@ -72,6 +73,7 @@ const App = () => (
                 <Route path="alerts" element={<Alerts />} />
                 <Route path="chat" element={<NutriChat />} />
                 <Route path="diagnostic" element={<Diagnostic />} />
+                <Route path="worker-diagnostic" element={<WorkerDiagnostic />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
