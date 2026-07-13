@@ -97,7 +97,7 @@ export function NutriSidebar() {
           <>
             <SidebarSeparator />
             <SidebarGroup>
-              <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
+              <SidebarGroupLabel>FERRAMENTAS</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {diagnosticItems.map((item) => (
