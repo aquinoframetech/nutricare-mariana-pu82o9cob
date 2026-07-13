@@ -38,12 +38,15 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error: signInError, message, role } = await signIn(email, password)
-    if (signInError) {
-      setError(message || mapSignInError(signInError))
+    try {
+      const { error: signInError, message, role } = await signIn(email, password)
+      if (signInError) {
+        setError(message || mapSignInError(signInError))
+      } else if (role) {
+        navigate(role === 'patient' ? '/patient' : '/nutri/dashboard', { replace: true })
+      }
+    } finally {
       setLoading(false)
-    } else if (role) {
-      navigate(role === 'patient' ? '/patient' : '/nutri/dashboard', { replace: true })
     }
   }
 
